@@ -2,11 +2,17 @@ name: Episodio diario
 
 on:
   schedule:
-    # Principal: 05:00 UTC = 02:00 en Chile con horario de verano (UTC-3).
-    - cron: "0 5 * * *"
+    # Principal: 05:17 UTC = 02:17 en Chile con horario de verano (UTC-3). El minuto 17 evita
+    # la congestión de las horas en punto, donde GitHub retrasa o descarta ejecuciones.
+    - cron: "17 5 * * *"
     # Respaldo: una hora después. Toda ejecución programada no hace nada si el episodio de hoy ya existe.
-    - cron: "0 6 * * *"
+    - cron: "17 6 * * *"
   workflow_dispatch:
+    inputs:
+      check_feeds:
+        description: "Solo diagnosticar los feeds (scripts/check_feeds.py) y terminar sin generar"
+        type: boolean
+        default: false
 
 # Nunca dos ejecuciones a la vez (la segunda espera a que termine la primera).
 concurrency:
@@ -32,14 +38,26 @@ jobs:
       - name: Instalar el proyecto
         run: pip install .
 
+      - name: Diagnóstico de feeds (solo si check_feeds=true)
+        id: feeds
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.check_feeds }}" = "true" ]; then
+            python scripts/check_feeds.py
+            echo "only=true" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Solo diagnóstico::Feeds comprobados; no se genera episodio."
+          else
+            echo "only=false" >> "$GITHUB_OUTPUT"
+          fi
+
       # Los datos (site/ + state.json) viven en la rama gh-pages, que es también
       # la que publica GitHub Pages. Se clona dentro de site/.
       - name: Recuperar datos previos (rama gh-pages)
+        if: steps.feeds.outputs.only != 'true'
         run: |
           set -euo pipefail
           repo_url="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           if git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
-            git clone --quiet --branch gh-pages "$repo_url" site
+            git clone --quiet --depth 1 --branch gh-pages "$repo_url" site
           else
             mkdir site
             git -C site init --quiet --initial-branch=gh-pages
@@ -52,6 +70,7 @@ jobs:
 
       - name: Comprobar si hoy ya hay episodio (solo respaldo)
         id: guard
+        if: steps.feeds.outputs.only != 'true'
         run: |
           if [ "${{ github.event_name }}" = "schedule" ] && python -m radio.check; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
@@ -62,7 +81,7 @@ jobs:
 
       - name: Generar episodio
         id: run
-        if: steps.guard.outputs.skip != 'true'
+        if: steps.feeds.outputs.only != 'true' && steps.guard.outputs.skip != 'true'
         run: |
           set +e
           python -m radio.run
@@ -70,8 +89,10 @@ jobs:
           set -e
           echo "code=$code" >> "$GITHUB_OUTPUT"
           if [ "$code" -eq 2 ]; then
-            echo "::notice title=Sin episodio hoy::No había suficientes historias nuevas; no se publicó nada."
-            exit 0
+            # Un día sin episodio no puede pasar en silencio: el correo de "run failed" de
+            # GitHub es el aviso.
+            echo "::error title=Sin episodio hoy::no episode today: fewer than 2 stories (menos de 2 historias relevantes); no se publicó nada. Revisa los feeds (scripts/check_feeds.py)."
+            exit 2
           fi
           exit "$code"
         env:
@@ -80,7 +101,7 @@ jobs:
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
 
       - name: Publicar en gh-pages
-        if: steps.guard.outputs.skip != 'true' && steps.run.outputs.code == '0'
+        if: steps.feeds.outputs.only != 'true' && steps.guard.outputs.skip != 'true' && steps.run.outputs.code == '0'
         run: |
           set -euo pipefail
           python -m radio.check --prune
@@ -88,10 +109,8 @@ jobs:
           cd site
           git config user.name "radio-ia[bot]"
           git config user.email "radio-ia-bot@users.noreply.github.com"
+          # Un único commit huérfano por día, forzado a gh-pages: el historial no crece.
+          git checkout --quiet --orphan publish
           git add -A
-          if git diff --cached --quiet; then
-            echo "Sin cambios que publicar"
-          else
-            git commit --quiet -m "Episodio $(date -u +%F)"
-            git push origin HEAD:gh-pages
-          fi
+          git commit --quiet -m "Episodio $(date -u +%F)"
+          git push --force origin publish:gh-pages
