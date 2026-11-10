@@ -10,7 +10,7 @@ max_stories = 6
 pool_size = 30
 # IMPORTANTE: reemplaza por https://<tu-usuario-de-github>.github.io/<nombre-del-repo>
 # (sin barra final). El feed usa esta URL para los enlaces a los MP3.
-site_url = "https://example.github.io/radio-ia"
+site_url = "https://diegocatalarc.github.io/radio-ia"
 tts_provider = "openai"
 tts_voice = ""
 
