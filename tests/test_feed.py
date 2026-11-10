@@ -1,4 +1,6 @@
 import xml.etree.ElementTree as ET
+
+import pytest
 from datetime import date, datetime, timedelta, timezone
 
 from radio.feed import Episode, build_feed, upsert_episode
@@ -75,3 +77,14 @@ def test_control_chars_are_stripped():
     xml = build_feed([ep(date(2026, 11, 10), title="a\x0bb\x00c")], "https://x", "UTC")
     item = ET.fromstring(xml.encode("utf-8")).find("channel/item")
     assert item.findtext("title") == "abc"
+
+
+def test_naive_published_raises_and_aware_works():
+    with pytest.raises(ValueError):
+        ep(date(2026, 11, 10), published=datetime(2026, 11, 10, 2, 0))
+    ep(date(2026, 11, 10), published=datetime(2026, 11, 10, 2, 0, tzinfo=timezone.utc))
+
+
+def test_control_chars_stripped_from_attributes():
+    xml = build_feed([ep(date(2026, 11, 10), mp3_path="a\x0bb.mp3")], "https://x", "UTC")
+    assert ET.fromstring(xml.encode("utf-8")).find("channel/item/enclosure").get("url") == "https://x/episodes/ab.mp3"

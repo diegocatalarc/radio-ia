@@ -30,6 +30,10 @@ class Episode:
     size_bytes: int
     published: datetime | None = None  # tz-aware generation time; used verbatim for pubDate
 
+    def __post_init__(self):
+        if self.published is not None and self.published.utcoffset() is None:
+            raise ValueError("Episode.published must be timezone-aware (got a naive datetime)")
+
 
 def _enclosure_url(site_url: str, mp3_path: str) -> str:
     return f"{site_url.rstrip('/')}/episodes/{posixpath.basename(mp3_path)}"
@@ -44,7 +48,7 @@ def _clean(text: str) -> str:
 
 
 def _sub(parent: ET.Element, tag: str, text: str | None = None, **attrs: str) -> ET.Element:
-    el = ET.SubElement(parent, tag, attrs)
+    el = ET.SubElement(parent, tag, {k: _clean(v) for k, v in attrs.items()})
     if text is not None:
         el.text = _clean(text)
     return el
