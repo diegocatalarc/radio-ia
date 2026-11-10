@@ -14,7 +14,7 @@ GitHub Pages. Lo escuchas suscribiéndote al feed en tu app de podcasts.
 3. Claude escribe el guion, el proveedor de voz genera el MP3 y se actualizan
    `site/episodes/episodio-AAAA-MM-DD.mp3`, `site/episodes.json` y `site/feed.xml`.
 4. El flujo `.github/workflows/daily.yml` corre a las 05:00 UTC (≈02:00 en Chile con horario de
-   verano) y de nuevo a las 06:00 UTC como respaldo: si el episodio de hoy ya existe, no hace nada.
+   verano) y de nuevo a las 06:00 UTC como respaldo: toda ejecución programada no hace nada si el episodio de hoy ya existe.
    También puedes lanzarlo a mano (`workflow_dispatch`).
 5. Un fallo real (código 1) hace fallar el job y GitHub te envía un correo.
 
@@ -73,9 +73,8 @@ GitHub Actions **siempre va en UTC** y no entiende de horario de verano, así qu
   esperas para el episodio.
 - Después del **7 de diciembre de 2026**, cuando estés en tu nueva zona, actualiza dos cosas:
   `timezone` en `config.toml` (por ejemplo `Europe/Madrid`) y las dos líneas `cron` de
-  `.github/workflows/daily.yml`. El segundo cron debe seguir siendo exactamente `0 6 * * *` salvo
-  que cambies también la comparación en el paso "Comprobar si hoy ya hay episodio" (compara con
-  el texto del cron de respaldo).
+  `.github/workflows/daily.yml`. No hay nada más que tocar: toda ejecución programada
+  (principal o respaldo) comprueba si el episodio de hoy ya existe y, si es así, no hace nada.
 - GitHub puede retrasar los crons varios minutos en horas de alta carga; es normal.
 
 ## Añadir una corrección

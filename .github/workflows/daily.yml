@@ -4,7 +4,7 @@ on:
   schedule:
     # Principal: 05:00 UTC = 02:00 en Chile con horario de verano (UTC-3).
     - cron: "0 5 * * *"
-    # Respaldo: una hora después; no hace nada si el episodio de hoy ya existe.
+    # Respaldo: una hora después. Toda ejecución programada no hace nada si el episodio de hoy ya existe.
     - cron: "0 6 * * *"
   workflow_dispatch:
 
@@ -53,10 +53,9 @@ jobs:
       - name: Comprobar si hoy ya hay episodio (solo respaldo)
         id: guard
         run: |
-          if [ "${{ github.event_name }}" = "schedule" ] && [ "${{ github.event.schedule }}" = "0 6 * * *" ] \
-             && python -m radio.check; then
+          if [ "${{ github.event_name }}" = "schedule" ] && python -m radio.check; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "::notice title=Respaldo::El episodio de hoy ya existe; no se hace nada."
+            echo "::notice title=Ya publicado::El episodio de hoy ya existe; no se hace nada."
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
