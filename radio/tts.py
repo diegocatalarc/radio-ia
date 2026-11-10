@@ -88,6 +88,49 @@ class OpenAITts:
         return resp.content
 
 
+class TtsError(Exception):
+    """Fallo del proveedor de voz. El mensaje nunca contiene la clave."""
+
+
+# Modelo y voz por defecto, leídos del listado público de OpenRouter
+# (GET /api/v1/models?output_modalities=speech). Hay que escuchar el resultado.
+OPENROUTER_DEFAULT_MODEL = "microsoft/mai-voice-2.1-flash"
+OPENROUTER_DEFAULT_VOICE = "es-MX-Valeria:MAI-Voice-2.1-Flash"
+# Según la documentación de OpenRouter, `instructions` solo lo usan estos proveedores.
+_INSTRUCTIONS_PREFIXES = ("openai/", "google/", "fish-audio/")
+
+
+class OpenRouterTts:
+    max_chars = 4000
+    url = "https://openrouter.ai/api/v1/audio/speech"
+    instructions = OpenAITts.instructions
+
+    def __init__(self, api_key: str, voice: str, model: str = OPENROUTER_DEFAULT_MODEL,
+                 client: httpx.Client | None = None):
+        self.api_key = api_key
+        self.voice = voice
+        self.model = model
+        self.client = client or httpx.Client(timeout=TIMEOUT)
+
+    def _clean(self, text: str) -> str:
+        return text.replace(self.api_key, "[REDACTED]") if self.api_key else text
+
+    def speak(self, chunk: str) -> bytes:
+        body = {"model": self.model, "input": chunk, "voice": self.voice,
+                "response_format": "mp3"}
+        if self.model.startswith(_INSTRUCTIONS_PREFIXES):
+            body["instructions"] = self.instructions
+        try:
+            resp = self.client.post(
+                self.url, headers={"Authorization": f"Bearer {self.api_key}"}, json=body)
+        except httpx.HTTPError as exc:
+            raise TtsError(f"OpenRouter TTS: fallo de red ({type(exc).__name__})") from None
+        if not resp.is_success:
+            detail = self._clean(resp.text[:300])
+            raise TtsError(f"OpenRouter TTS devolvió HTTP {resp.status_code}: {detail}")
+        return resp.content
+
+
 class ElevenLabsTts:
     max_chars = 4500
     base_url = "https://api.elevenlabs.io/v1/text-to-speech"
@@ -121,6 +164,16 @@ def _require_key(env_var: str) -> str:
 
 def provider_from_config(config: Config) -> TtsProvider:
     name = config.tts_provider
+    if name == "openrouter":
+        key = _require_key("OPENROUTER_API_KEY")
+        model = config.tts_model or OPENROUTER_DEFAULT_MODEL
+        voice = config.tts_voice
+        if not voice:
+            if model != OPENROUTER_DEFAULT_MODEL:
+                raise ValueError(f"tts_voice es obligatorio con tts_model = {model!r} "
+                                 "(las voces dependen del modelo; ver supported_voices)")
+            voice = OPENROUTER_DEFAULT_VOICE
+        return OpenRouterTts(key, voice, model)
     if name == "openai":
         return OpenAITts(_require_key("OPENAI_API_KEY"), config.tts_voice or OPENAI_DEFAULT_VOICE)
     if name == "elevenlabs":
@@ -128,4 +181,4 @@ def provider_from_config(config: Config) -> TtsProvider:
         if not config.tts_voice:
             raise ValueError("tts_voice (voice_id de ElevenLabs) es obligatorio con tts_provider = 'elevenlabs'")
         return ElevenLabsTts(key, config.tts_voice)
-    raise ValueError(f"tts_provider desconocido: {name!r} (use 'openai' o 'elevenlabs')")
+    raise ValueError(f"tts_provider desconocido: {name!r} (use 'openrouter', 'openai' o 'elevenlabs')")

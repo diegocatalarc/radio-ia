@@ -63,7 +63,8 @@ import httpx
 import pytest
 
 from radio.config import Config
-from radio.tts import ElevenLabsTts, OpenAITts, provider_from_config
+from radio.tts import (ElevenLabsTts, OpenAITts, OpenRouterTts, TtsError,
+                       provider_from_config, OPENROUTER_DEFAULT_MODEL, OPENROUTER_DEFAULT_VOICE)
 
 OPENAI_INSTRUCTIONS = ("Habla en español latinoamericano neutro, con tono natural, cálido y claro "
                        "de radio matutina; ritmo pausado")
@@ -119,6 +120,8 @@ def test_http_error_raises(cls):
 def test_provider_from_config(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "k1")
     monkeypatch.setenv("ELEVENLABS_API_KEY", "k2")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "k3")
+    assert isinstance(provider_from_config(Config(tts_provider="openrouter")), OpenRouterTts)
     assert isinstance(provider_from_config(Config(tts_provider="openai", tts_voice="alloy")), OpenAITts)
     assert isinstance(provider_from_config(Config(tts_provider="elevenlabs", tts_voice="v")), ElevenLabsTts)
 
@@ -131,6 +134,9 @@ def test_provider_from_config_openai_default_voice(monkeypatch):
 def test_provider_from_config_errors(monkeypatch):
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("ELEVENLABS_API_KEY", raising=False)
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    with pytest.raises(ValueError, match="OPENROUTER_API_KEY"):
+        provider_from_config(Config(tts_provider="openrouter"))
     with pytest.raises(ValueError, match="OPENAI_API_KEY"):
         provider_from_config(Config(tts_provider="openai"))
     with pytest.raises(ValueError, match="ELEVENLABS_API_KEY"):
@@ -140,3 +146,47 @@ def test_provider_from_config_errors(monkeypatch):
     monkeypatch.setenv("ELEVENLABS_API_KEY", "k")
     with pytest.raises(ValueError, match="tts_voice"):
         provider_from_config(Config(tts_provider="elevenlabs", tts_voice=""))
+
+
+# --- OpenRouter ---
+KEY = "sk-or-SECRET123"
+
+
+def test_openrouter_request_shape_openai_model_sends_instructions():
+    client, seen = _client()
+    tts = OpenRouterTts(KEY, "alloy", model="openai/gpt-4o-mini-tts-2025-12-15", client=client)
+    assert tts.max_chars == 4000
+    assert tts.speak("Hola mundo.") == b"MP3DATA"
+    req = seen[0]
+    assert req.method == "POST"
+    assert str(req.url) == "https://openrouter.ai/api/v1/audio/speech"
+    assert req.headers["authorization"] == f"Bearer {KEY}"
+    assert json.loads(req.content) == {
+        "model": "openai/gpt-4o-mini-tts-2025-12-15", "input": "Hola mundo.",
+        "voice": "alloy", "response_format": "mp3", "instructions": OPENAI_INSTRUCTIONS}
+
+
+def test_openrouter_default_model_omits_unsupported_instructions():
+    client, seen = _client()
+    OpenRouterTts(KEY, OPENROUTER_DEFAULT_VOICE, client=client).speak("Hola.")
+    body = json.loads(seen[0].content)
+    assert body["model"] == OPENROUTER_DEFAULT_MODEL
+    assert body["voice"] == OPENROUTER_DEFAULT_VOICE
+    assert body["response_format"] == "mp3" and "instructions" not in body
+
+
+def test_openrouter_error_status_does_not_leak_key():
+    client, _ = _client(status=401, body=f"bad key {KEY}".encode())
+    with pytest.raises(TtsError, match="401") as ei:
+        OpenRouterTts(KEY, "v", client=client).speak("x")
+    assert KEY not in str(ei.value)
+
+
+def test_openrouter_provider_defaults_and_overrides(monkeypatch):
+    monkeypatch.setenv("OPENROUTER_API_KEY", KEY)
+    p = provider_from_config(Config(tts_provider="openrouter"))
+    assert (p.model, p.voice) == (OPENROUTER_DEFAULT_MODEL, OPENROUTER_DEFAULT_VOICE)
+    p = provider_from_config(Config(tts_provider="openrouter", tts_model="openai/x-tts", tts_voice="nova"))
+    assert (p.model, p.voice) == ("openai/x-tts", "nova")
+    with pytest.raises(ValueError, match="tts_voice"):
+        provider_from_config(Config(tts_provider="openrouter", tts_model="openai/x-tts"))
