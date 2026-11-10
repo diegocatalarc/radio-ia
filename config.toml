@@ -1,0 +1,18 @@
+timezone = "America/Santiago"
+publish_hour = 7
+model = "claude-sonnet-5-5"
+max_stories = 8
+site_url = "https://example.github.io/radio-ia"
+tts_provider = "openai"
+tts_voice = ""
+
+feeds = [
+    "https://techcrunch.com/category/artificial-intelligence/feed/",
+    "https://www.technologyreview.com/topic/artificial-intelligence/feed",
+    "https://venturebeat.com/category/ai/feed/",
+    "https://feeds.bloomberg.com/technology/news.rss",
+    "https://openai.com/news/rss.xml",
+    "https://www.anthropic.com/rss.xml",
+    "https://deepmind.google/blog/rss.xml",
+    "https://www.economist.com/science-and-technology/rss.xml",
+]
