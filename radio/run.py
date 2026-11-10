@@ -14,10 +14,10 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from radio.config import Config, load_config
+from radio.config import Config, load_config, validate_config
 from radio.feed import Episode, build_feed, upsert_episode
-from radio.script import select_and_write
-from radio.sources import fetch_stories
+from radio.script import select_and_write, select_stories
+from radio.sources import balance_pool, collect_pool, fetch_bodies
 from radio.state import State
 from radio.tts import synthesize
 
@@ -131,14 +131,27 @@ def _run(config: Config, now: datetime, deps: Deps) -> RunResult:
     state = State.load(deps.state_path)
     state.current_day = day
 
-    fetched = fetch_stories(config.feeds, now - LOOKBACK, client=deps.http)
-    new = state.filter_new(fetched)
-    new.sort(key=lambda s: s.published, reverse=True)
-    new = new[:config.max_stories]
-    if len(new) < MIN_STORIES:
-        msg = f"Solo {len(new)} historias nuevas; no se publica nada"
+    # Etapa 1: pool de titulares+resúmenes (sin cuerpos), balanceado entre fuentes.
+    fetched, stats = collect_pool(config.feeds, now - LOOKBACK, client=deps.http)
+    feed_note = ""
+    if stats.failed * 2 > stats.total:
+        feed_note = (f"{stats.failed} de {stats.total} feeds fallaron "
+                     "(error o 0 entradas): " + ", ".join(stats.failed_urls))
+        log.error("ERROR: %s", feed_note)
+    elif stats.failed:
+        log.warning("%d de %d feeds fallaron: %s", stats.failed, stats.total,
+                    ", ".join(stats.failed_urls))
+    suffix = f" | ERROR: {feed_note}" if feed_note else ""
+
+    pool = balance_pool(state.filter_new(fetched), config.pool_size)
+    # Etapa 2: Claude elige (llamada barata) y solo entonces se descargan los cuerpos.
+    chosen = select_stories(pool, day, deps.claude, config.model,
+                            max_stories=config.max_stories)
+    if len(chosen) < MIN_STORIES:
+        msg = f"Solo {len(chosen)} historias nuevas; no se publica nada{suffix}"
         log.warning(msg)
-        return RunResult("skipped", 2, day, len(new), msg)
+        return RunResult("skipped", 2, day, len(chosen), msg)
+    new = fetch_bodies(chosen, client=deps.http)
 
     result = select_and_write(new, day, state.pop_corrections(), deps.claude,
                               model=config.model)
@@ -163,7 +176,7 @@ def _run(config: Config, now: datetime, deps: Deps) -> RunResult:
     _atomic_write(episodes_path, episodes_json.encode("utf-8"))
     _atomic_write(deps.site_dir / "feed.xml", feed_xml.encode("utf-8"))
     state.save(deps.state_path)
-    msg = f"Publicado {name} con {len(result.used)} historias"
+    msg = f"Publicado {name} con {len(result.used)} historias{suffix}"
     log.info(msg)
     return RunResult("published", 0, day, len(result.used), msg)
 
@@ -175,10 +188,12 @@ def main() -> int:
     try:
         from radio.tts import provider_from_config
         config = load_config()
+        validate_config(config)
         deps = Deps(claude=anthropic.Anthropic(), tts=provider_from_config(config),
                     http=None, site_dir=Path("site"), state_path=Path("state.json"))
     except Exception as exc:
-        log.error("setup failed: %s", type(exc).__name__)
+        # Los mensajes de configuración solo nombran variables (nunca valores de claves).
+        log.error("setup failed: %s: %s", type(exc).__name__, exc)
         return 1
     res = run(config, datetime.now(ZoneInfo("UTC")), deps)
     log.info("%s: %s", res.status, res.message)

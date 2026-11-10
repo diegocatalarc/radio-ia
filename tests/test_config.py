@@ -1,6 +1,8 @@
 from pathlib import Path
 
-from radio.config import load_config
+import pytest
+
+from radio.config import Config, load_config, validate_config
 
 
 def test_load_config_reads_timezone_and_feeds(tmp_path: Path):
@@ -16,3 +18,19 @@ def test_load_config_reads_timezone_and_feeds(tmp_path: Path):
     assert cfg.max_stories == 6
     assert cfg.tts_provider == "openai"
     assert cfg.tts_voice == ""
+
+
+def test_defaults_pool_and_max_stories():
+    c = Config()
+    assert c.pool_size == 30 and c.max_stories == 6
+
+
+@pytest.mark.parametrize("url", ["", "http://u.github.io/r", "https://example.github.io/radio-ia",
+                                 "https://example.org/x", "u.github.io/r"])
+def test_placeholder_or_invalid_site_url_rejected(url):
+    with pytest.raises(ValueError, match="config.toml"):
+        validate_config(Config(site_url=url))
+
+
+def test_valid_site_url_accepted():
+    validate_config(Config(site_url="https://diego.github.io/radio-ia"))

@@ -1,11 +1,11 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
 
 from radio.models import Story
 from radio.script import (ScriptGroundingError, ScriptRefusedError, ScriptTruncatedError,
-                          select_and_write, unsupported_numbers, word_range)
+                          select_and_write, select_stories, unsupported_numbers, word_range)
 
 
 def story(id="a", title="OpenAI invierte", summary="Invertirá 8 mil millones", body=None):
@@ -213,3 +213,54 @@ def test_response_without_text_block_retries():
     client = SimpleNamespace(messages=SimpleNamespace(create=create))
     assert select_and_write([story()], date(2026, 11, 10), [], client).text == "Bien."
     assert len(calls) == 2
+
+
+def _pool(n):
+    return [Story(id=f"s{i}", title=f"Titular {i}", url=f"http://x/s{i}", source=f"F{i % 3}",
+                  published=datetime(2026, 11, 10) - timedelta(hours=i), summary=f"Resumen {i}")
+            for i in range(n)]
+
+
+def _sel_client(reply_text=None, exc=None):
+    prompts = []
+
+    def create(**kw):
+        prompts.append(kw["messages"][0]["content"])
+        if exc:
+            raise exc
+        return SimpleNamespace(content=[SimpleNamespace(text=reply_text)], stop_reason="end_turn")
+    return SimpleNamespace(messages=SimpleNamespace(create=create)), prompts
+
+
+def test_select_stories_returns_chosen_in_reply_order_ignoring_unknown_and_dupes():
+    client, prompts = _sel_client("ELEGIDAS: s7, s2, zzz, s7, s5, s1")
+    out = select_stories(_pool(10), date(2026, 11, 10), client, "m")
+    assert [s.id for s in out] == ["s7", "s2", "s5", "s1"]
+    assert "Titular 3" in prompts[0] and "Resumen 3" in prompts[0]
+
+
+def test_select_stories_tolerates_prose_and_caps_at_max():
+    client, _ = _sel_client("Claro, estas son las mejores:\n- s0\n- s1\n- s2 y s3, s4; s5 + s6 y s8")
+    out = select_stories(_pool(10), date(2026, 11, 10), client, "m", max_stories=6)
+    assert [s.id for s in out] == ["s0", "s1", "s2", "s3", "s4", "s5"]
+
+
+@pytest.mark.parametrize("bad", ["No sé cuáles elegir.", "ELEGIDAS: s3", "ELEGIDAS: zz1, zz2"])
+def test_select_stories_falls_back_to_newest_when_reply_unusable(bad):
+    client, _ = _sel_client(bad)
+    pool = _pool(10)
+    out = select_stories(list(reversed(pool)), date(2026, 11, 10), client, "m")
+    assert [s.id for s in out] == [f"s{i}" for i in range(6)]
+
+
+def test_select_stories_falls_back_on_api_error():
+    client, _ = _sel_client(exc=RuntimeError("api down"))
+    out = select_stories(_pool(9), date(2026, 11, 10), client, "m")
+    assert [s.id for s in out] == [f"s{i}" for i in range(6)]
+
+
+def test_select_stories_skips_call_when_pool_small():
+    client, prompts = _sel_client("ELEGIDAS: s0")
+    out = select_stories(_pool(5), date(2026, 11, 10), client, "m")
+    assert prompts == [] and len(out) == 5
+    assert select_stories(_pool(1), date(2026, 11, 10), client, "m")[0].id == "s0"

@@ -1,11 +1,14 @@
 import json
+import logging
 from datetime import date, datetime, timedelta, timezone
 from types import SimpleNamespace
 from zoneinfo import ZoneInfo
 
 from radio.config import Config
 from radio.feed import Episode
-from radio.run import Deps, estimate_mp3_duration_s, run
+import pytest
+
+from radio.run import Deps, estimate_mp3_duration_s, main, run
 from radio.state import State
 
 SANTIAGO = ZoneInfo("America/Santiago")
@@ -21,10 +24,15 @@ def make_feed_xml(stories):
 
 
 class FakeHttp:
-    def __init__(self, n, fail=False):
+    def __init__(self, n, bad=()):
         self.xml = make_feed_xml([(f"s{i}", f"Historia {i}") for i in range(n)])
+        self.bad = set(bad)
+        self.requested = []
 
     def get(self, url, **kw):
+        self.requested.append(url)
+        if url in self.bad:
+            raise RuntimeError("feed down")
         resp = SimpleNamespace(text=self.xml, status_code=200)
         resp.raise_for_status = lambda: None
         return resp
@@ -33,6 +41,7 @@ class FakeHttp:
 class FakeClaude:
     def __init__(self, n_used=None):
         self.n_used = n_used
+        self.pick = lambda ids: ids[:2] + ids[-1:]
         self.calls = []
         self.messages = SimpleNamespace(create=self._create)
 
@@ -42,6 +51,10 @@ class FakeClaude:
         ids = [f"{i}" for i in range(0, 0)]
         import re
         ids = re.findall(r"\[id: ([^\]]+)\]", prompt)
+        if "ELEGIDAS" in prompt:  # llamada de selección
+            self.pool_ids = ids
+            return SimpleNamespace(content=[SimpleNamespace(
+                text="ELEGIDAS: " + ",".join(self.pick(ids)))], stop_reason="end_turn")
         if self.n_used:
             ids = ids[:self.n_used]
         return SimpleNamespace(content=[SimpleNamespace(
@@ -61,13 +74,13 @@ class FakeTts:
 
 
 def cfg(**kw):
-    base = dict(feeds=["http://feed/1"], site_url="https://example.org/radio", max_stories=8)
+    base = dict(feeds=["http://feed/1"], site_url="https://example.org/radio", max_stories=6)
     base.update(kw)
     return Config(**base)
 
 
-def deps(tmp_path, n=4, tts=None, claude=None):
-    return Deps(claude=claude or FakeClaude(), tts=tts or FakeTts(), http=FakeHttp(n),
+def deps(tmp_path, n=4, tts=None, claude=None, bad=()):
+    return Deps(claude=claude or FakeClaude(), tts=tts or FakeTts(), http=FakeHttp(n, bad),
                 site_dir=tmp_path / "site", state_path=tmp_path / "state.json")
 
 
@@ -187,3 +200,72 @@ def test_duration_estimate_from_cbr_header_and_fallback():
     frame = b"\xff\xfb\x90\x00"
     assert estimate_mp3_duration_s(frame + b"\x00" * (16000 * 10 - 4)) == 10
     assert estimate_mp3_duration_s(b"junk") >= 1
+
+
+def test_selection_stage_chooses_from_big_pool_and_only_chosen_reach_script(tmp_path):
+    d = deps(tmp_path, n=12)
+    res = run(cfg(), NOW, d)
+    assert res.exit_code == 0
+    assert "ELEGIDAS" in d.claude.calls[0] and "ELEGIDAS" not in d.claude.calls[1]
+    assert len(d.claude.pool_ids) == 12  # el pool completo (<= pool_size) llega a la selección
+    script_prompt = d.claude.calls[1]
+    assert script_prompt.count("[id: ") == 3
+    # solo se descargan cuerpos de las elegidas (3), no de las 12
+    article_gets = [u for u in d.http.requested if u.startswith("http://x/")]
+    assert len(article_gets) == 3
+
+
+def test_pool_size_caps_what_claude_sees(tmp_path):
+    d = deps(tmp_path, n=12)
+    res = run(cfg(pool_size=7, max_stories=6), NOW, d)
+    assert res.exit_code == 0, res.message
+    assert len(d.claude.pool_ids) == 7
+
+
+def test_fewer_than_two_selected_stories_exit_2(tmp_path):
+    d = deps(tmp_path, n=1)
+    assert run(cfg(), NOW, d).exit_code == 2
+
+
+def test_more_than_half_feeds_failed_logs_error_and_message(tmp_path, caplog):
+    feeds = ["http://f/1", "http://f/2", "http://f/3"]
+    d = deps(tmp_path, n=4, bad={"http://f/2", "http://f/3"})
+    with caplog.at_level(logging.INFO):
+        res = run(cfg(feeds=feeds), NOW, d)
+    assert res.exit_code == 0  # la semántica de códigos no cambia
+    assert "2 de 3 feeds" in res.message
+    errors = [r for r in caplog.records if r.levelno == logging.ERROR]
+    assert any("2 de 3 feeds" in r.getMessage() for r in errors)
+
+
+def test_half_or_fewer_failed_feeds_is_not_an_error(tmp_path, caplog):
+    d = deps(tmp_path, n=4, bad={"http://f/2"})
+    with caplog.at_level(logging.INFO):
+        res = run(cfg(feeds=["http://f/1", "http://f/2"]), NOW, d)
+    assert "feeds" not in res.message
+    assert not [r for r in caplog.records
+                if r.levelno == logging.ERROR and r.name.startswith("radio")]
+
+
+def test_skipped_run_with_failed_feeds_reports_them(tmp_path):
+    d = deps(tmp_path, n=0, bad={"http://f/2", "http://f/3"})
+    res = run(cfg(feeds=["http://f/1", "http://f/2", "http://f/3"]), NOW, d)
+    assert res.exit_code == 2 and "3 de 3 feeds" in res.message
+
+
+def test_main_logs_missing_key_variable_name(monkeypatch, caplog):
+    monkeypatch.setattr("radio.run.load_config", lambda: cfg(site_url="https://u.github.io/r"))
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "k")
+    with caplog.at_level(logging.ERROR):
+        assert main() == 1
+    assert any("OPENAI_API_KEY" in r.getMessage() for r in caplog.records)
+
+
+def test_main_rejects_placeholder_site_url(monkeypatch, caplog):
+    monkeypatch.setattr("radio.run.load_config", lambda: cfg())  # example.org
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "k")
+    monkeypatch.setenv("OPENAI_API_KEY", "k")
+    with caplog.at_level(logging.ERROR):
+        assert main() == 1
+    assert any("config.toml" in r.getMessage() for r in caplog.records)
