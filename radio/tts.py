@@ -3,11 +3,13 @@ from __future__ import annotations
 
 import os
 import re
-from typing import Protocol
+import time
+from typing import Callable, Protocol
 
 import httpx
 
 from radio.config import Config
+from radio.http_retry import post_with_retry
 
 
 class TtsProvider(Protocol):
@@ -72,14 +74,16 @@ class OpenAITts:
     instructions = ("Habla en español latinoamericano neutro, con tono natural, cálido y "
                     "claro de radio matutina; ritmo pausado")
 
-    def __init__(self, api_key: str, voice: str, client: httpx.Client | None = None):
+    def __init__(self, api_key: str, voice: str, client: httpx.Client | None = None,
+                 sleep: Callable[[float], None] = time.sleep):
         self.api_key = api_key
         self.voice = voice
         self.client = client or httpx.Client(timeout=TIMEOUT)
+        self.sleep = sleep
 
     def speak(self, chunk: str) -> bytes:
-        resp = self.client.post(
-            self.url,
+        resp = post_with_retry(
+            self.client, self.url, sleep=self.sleep,
             headers={"Authorization": f"Bearer {self.api_key}"},
             json={"model": self.model, "input": chunk, "voice": self.voice,
                   "response_format": "mp3", "instructions": self.instructions},
@@ -100,17 +104,26 @@ OPENROUTER_DEFAULT_VOICE = "es-MX-Valeria:MAI-Voice-2.1-Flash"
 _INSTRUCTIONS_PREFIXES = ("openai/", "google/", "fish-audio/")
 
 
+def _looks_like_mp3(data: bytes) -> bool:
+    if data[:3] == b"ID3":
+        return True
+    return len(data) >= 2 and data[0] == 0xFF and (data[1] & 0xE0) == 0xE0
+
+
 class OpenRouterTts:
-    max_chars = 4000
+    # Conservador: el límite por petición del modelo por defecto no está verificado.
+    max_chars = 2500
     url = "https://openrouter.ai/api/v1/audio/speech"
     instructions = OpenAITts.instructions
 
     def __init__(self, api_key: str, voice: str, model: str = OPENROUTER_DEFAULT_MODEL,
-                 client: httpx.Client | None = None):
+                 client: httpx.Client | None = None,
+                 sleep: Callable[[float], None] = time.sleep):
         self.api_key = api_key
         self.voice = voice
         self.model = model
         self.client = client or httpx.Client(timeout=TIMEOUT)
+        self.sleep = sleep
 
     def _clean(self, text: str) -> str:
         return text.replace(self.api_key, "[REDACTED]") if self.api_key else text
@@ -121,14 +134,26 @@ class OpenRouterTts:
         if self.model.startswith(_INSTRUCTIONS_PREFIXES):
             body["instructions"] = self.instructions
         try:
-            resp = self.client.post(
-                self.url, headers={"Authorization": f"Bearer {self.api_key}"}, json=body)
+            resp = post_with_retry(
+                self.client, self.url, sleep=self.sleep,
+                headers={"Authorization": f"Bearer {self.api_key}"}, json=body)
         except httpx.HTTPError as exc:
             raise TtsError(f"OpenRouter TTS: fallo de red ({type(exc).__name__})") from None
         if not resp.is_success:
             detail = self._clean(resp.text[:300])
             raise TtsError(f"OpenRouter TTS devolvió HTTP {resp.status_code}: {detail}")
-        return resp.content
+        data = resp.content
+        ctype = resp.headers.get("content-type", "").lower()
+        if (not data or "json" in ctype or "text" in ctype or data[:1] in (b"{", b"<")
+                or not _looks_like_mp3(data)):
+            try:
+                preview = self._clean(data[:200].decode("utf-8"))
+            except UnicodeDecodeError:
+                preview = ""
+            msg = (f"OpenRouter TTS devolvió HTTP {resp.status_code} pero no un MP3 válido "
+                   f"({len(data)} bytes, content-type {ctype or 'desconocido'!r})")
+            raise TtsError(msg + (f": {preview}" if preview else ""))
+        return data
 
 
 class ElevenLabsTts:
@@ -136,14 +161,16 @@ class ElevenLabsTts:
     base_url = "https://api.elevenlabs.io/v1/text-to-speech"
     model_id = "eleven_multilingual_v2"
 
-    def __init__(self, api_key: str, voice: str, client: httpx.Client | None = None):
+    def __init__(self, api_key: str, voice: str, client: httpx.Client | None = None,
+                 sleep: Callable[[float], None] = time.sleep):
         self.api_key = api_key
         self.voice = voice  # voice_id
         self.client = client or httpx.Client(timeout=TIMEOUT)
+        self.sleep = sleep
 
     def speak(self, chunk: str) -> bytes:
-        resp = self.client.post(
-            f"{self.base_url}/{self.voice}",
+        resp = post_with_retry(
+            self.client, f"{self.base_url}/{self.voice}", sleep=self.sleep,
             params={"output_format": "mp3_44100_128"},
             headers={"xi-api-key": self.api_key},
             json={"text": chunk, "model_id": self.model_id},

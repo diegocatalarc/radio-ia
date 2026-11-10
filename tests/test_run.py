@@ -192,6 +192,38 @@ def test_second_day_keeps_history_and_consumes_corrections(tmp_path):
     assert len(json.loads((d.site_dir / "episodes.json").read_text())) == 2
 
 
+def _id3(n_payload=0):
+    return b"ID3\x04\x00\x00" + bytes([0, 0, 0, n_payload]) + b"\x00" * n_payload
+
+
+def test_duration_mpeg1_layer3_128k():
+    data = b"\xff\xfb\x90\x00" + b"\x00" * (16000 * 5 - 4)
+    assert estimate_mp3_duration_s(data) == 5
+
+
+def test_duration_mpeg2_24khz_48kbps():
+    # 0xFFF3 = MPEG-2 Layer III; byte3 0x44 = bitrate idx 4 (32 kbps in MPEG-2 table)
+    # idx 8 = 64k; use idx 6 = 48 kbps -> 0x64
+    data = b"\xff\xf3\x64\x00" + b"\x00" * (6000 * 10 - 4)
+    assert estimate_mp3_duration_s(data) == 10
+
+
+def test_duration_mpeg25_and_id3_prefix_skipped():
+    # 0xFFE3 = MPEG-2.5 Layer III, idx 6 = 48 kbps (MPEG-2 table) -> 6000 B/s
+    data = _id3(100) + b"\xff\xe3\x64\x00" + b"\x00" * (6000 * 4 - 4)
+    assert estimate_mp3_duration_s(data) == 4
+
+
+def test_duration_id3_prefix_with_mpeg1():
+    data = _id3(50) + b"\xff\xfb\x90\x00" + b"\x00" * (16000 * 3 - 4)
+    assert estimate_mp3_duration_s(data) == 3
+
+
+def test_duration_free_format_or_bad_header_falls_back():
+    assert estimate_mp3_duration_s(b"\xff\xf3\x00\x00" + b"\x00" * 100) >= 1
+    assert estimate_mp3_duration_s(b"") >= 1
+
+
 def test_duration_estimate_from_cbr_header_and_fallback():
     # MPEG1 Layer III, 128 kbps, 44.1 kHz: 16000 bytes/s
     frame = b"\xff\xfb\x90\x00"

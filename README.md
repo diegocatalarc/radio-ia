@@ -119,6 +119,14 @@ voces en español del modelo en el listado público; también puedes fijarlas co
 la voz por defecto se eligió por el listado (modelo con voces `es-MX` y salida MP3), no por haberla
 oído. Cuando decidas, ajusta `tts_model` y `tts_voice` en `config.toml`.
 
+> **Límite por petición sin verificar.** El límite de caracteres por petición del modelo de voz por
+> defecto (`microsoft/mai-voice-2.1-flash`) no está verificado; el adaptador de OpenRouter trocea el
+> guion en trozos de `max_chars = 2500` (en `OpenRouterTts`, `radio/tts.py`), un valor conservador.
+> Si la primera ejecución devuelve un 400 que habla de longitud, baja `max_chars` (por ejemplo a
+> 1500 o 1000) y vuelve a lanzar: el troceado por frases se adapta solo. Además, el adaptador rechaza
+> respuestas 2xx que no sean un MP3 real (JSON de error, HTML, vacías) en lugar de publicarlas, y
+> reintenta hasta 2 veces (0,5 s y 2 s) ante 408, 429, 5xx y errores de red.
+
 ### Costes
 
 Verificado en el listado de modelos de OpenRouter (10-nov-2026): `anthropic/claude-sonnet-5.5`

@@ -150,13 +150,14 @@ def test_provider_from_config_errors(monkeypatch):
 
 # --- OpenRouter ---
 KEY = "sk-or-SECRET123"
+MP3 = b"\xff\xfb\x90\x00" + b"\x00" * 16
 
 
 def test_openrouter_request_shape_openai_model_sends_instructions():
-    client, seen = _client()
+    client, seen = _client(body=MP3)
     tts = OpenRouterTts(KEY, "alloy", model="openai/gpt-4o-mini-tts-2025-12-15", client=client)
-    assert tts.max_chars == 4000
-    assert tts.speak("Hola mundo.") == b"MP3DATA"
+    assert tts.max_chars == 2500
+    assert tts.speak("Hola mundo.") == MP3
     req = seen[0]
     assert req.method == "POST"
     assert str(req.url) == "https://openrouter.ai/api/v1/audio/speech"
@@ -167,7 +168,7 @@ def test_openrouter_request_shape_openai_model_sends_instructions():
 
 
 def test_openrouter_default_model_omits_unsupported_instructions():
-    client, seen = _client()
+    client, seen = _client(body=MP3)
     OpenRouterTts(KEY, OPENROUTER_DEFAULT_VOICE, client=client).speak("Hola.")
     body = json.loads(seen[0].content)
     assert body["model"] == OPENROUTER_DEFAULT_MODEL
@@ -190,3 +191,98 @@ def test_openrouter_provider_defaults_and_overrides(monkeypatch):
     assert (p.model, p.voice) == ("openai/x-tts", "nova")
     with pytest.raises(ValueError, match="tts_voice"):
         provider_from_config(Config(tts_provider="openrouter", tts_model="openai/x-tts"))
+
+
+def _resp_client(make):
+    seen = []
+
+    def handler(req):
+        seen.append(req)
+        return make(len(seen))
+    return httpx.Client(transport=httpx.MockTransport(handler)), seen
+
+
+@pytest.mark.parametrize("resp", [
+    httpx.Response(200, json={"error": {"message": "nope"}}),
+    httpx.Response(200, content=b"<html>oops</html>", headers={"content-type": "audio/mpeg"}),
+    httpx.Response(200, content=b"", headers={"content-type": "audio/mpeg"}),
+    httpx.Response(200, content=b"\xff\xfb\x90\x00", headers={"content-type": "text/plain"}),
+    httpx.Response(200, content=b'{"a":1}', headers={"content-type": "audio/mpeg"}),
+    httpx.Response(200, content=b"RIFF\x00\x00WAVEdata", headers={"content-type": "audio/wav"}),
+    httpx.Response(200, content=b"\x00\x01\x02\x03" * 8),
+], ids=["json", "html", "empty", "text-ct", "brace", "wav", "garbage"])
+def test_openrouter_rejects_non_mp3_2xx(resp):
+    client, _ = _resp_client(lambda n: resp)
+    with pytest.raises(TtsError) as ei:
+        OpenRouterTts(KEY, "v", client=client, sleep=lambda s: None).speak("x")
+    assert KEY not in str(ei.value) and len(str(ei.value)) < 400
+
+
+def test_openrouter_error_json_body_message_is_shown_truncated():
+    client, _ = _resp_client(lambda n: httpx.Response(200, json={"error": "x" * 1000}))
+    with pytest.raises(TtsError) as ei:
+        OpenRouterTts(KEY, "v", client=client, sleep=lambda s: None).speak("x")
+    assert "x" * 201 not in str(ei.value)
+
+
+@pytest.mark.parametrize("body", [b"ID3\x04\x00\x00\x00\x00\x00\x00" + b"\x00" * 8,
+                                  b"\xff\xfb\x90\x00" + b"\x00" * 8,
+                                  b"\xff\xf3\x40\x00" + b"\x00" * 8])
+def test_openrouter_accepts_valid_mp3(body):
+    client, _ = _resp_client(lambda n: httpx.Response(200, content=body,
+                                                      headers={"content-type": "audio/mpeg"}))
+    assert OpenRouterTts(KEY, "v", client=client, sleep=lambda s: None).speak("x") == body
+
+
+# --- reintentos ---
+def _flaky(statuses, ok_body=MP3):
+    def make(n):
+        st = statuses[min(n - 1, len(statuses) - 1)]
+        return httpx.Response(st, content=ok_body if st == 200 else b"err")
+    return _resp_client(make)
+
+
+def test_openrouter_tts_retries_503_then_succeeds():
+    client, seen = _flaky([503, 200])
+    sleeps = []
+    tts = OpenRouterTts(KEY, "v", client=client, sleep=sleeps.append)
+    assert tts.speak("x") == MP3
+    assert len(seen) == 2 and sleeps == [0.5]
+
+
+def test_openrouter_tts_gives_up_after_three_attempts_without_leak():
+    client, seen = _flaky([429])
+    sleeps = []
+    with pytest.raises(TtsError, match="429") as ei:
+        OpenRouterTts(KEY, "v", client=client, sleep=sleeps.append).speak("x")
+    assert len(seen) == 3 and sleeps == [0.5, 2.0] and KEY not in str(ei.value)
+
+
+def test_openrouter_tts_no_retry_on_401():
+    client, seen = _flaky([401])
+    with pytest.raises(TtsError, match="401"):
+        OpenRouterTts(KEY, "v", client=client, sleep=lambda s: None).speak("x")
+    assert len(seen) == 1
+
+
+def test_openrouter_tts_retries_transport_error():
+    def handler(req):
+        handler.n += 1
+        if handler.n == 1:
+            raise httpx.ReadTimeout("slow " + KEY)
+        return httpx.Response(200, content=MP3)
+    handler.n = 0
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    assert OpenRouterTts(KEY, "v", client=client, sleep=lambda s: None).speak("x") == MP3
+    assert handler.n == 2
+
+
+@pytest.mark.parametrize("cls", [OpenAITts, ElevenLabsTts])
+def test_other_tts_retry_503_then_ok_and_no_retry_401(cls):
+    client, seen = _flaky([503, 200], ok_body=b"MP3DATA")
+    assert cls("k", "v", client=client, sleep=lambda s: None).speak("x") == b"MP3DATA"
+    assert len(seen) == 2
+    client, seen = _flaky([401])
+    with pytest.raises(httpx.HTTPStatusError):
+        cls("k", "v", client=client, sleep=lambda s: None).speak("x")
+    assert len(seen) == 1

@@ -5,10 +5,13 @@ Adaptadores: OpenRouter (por defecto, vía httpx) y Anthropic (SDK, import perez
 from __future__ import annotations
 
 import os
+import time
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Callable, Protocol
 
 import httpx
+
+from radio.http_retry import post_with_retry
 
 TIMEOUT = 180.0
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
@@ -46,17 +49,19 @@ def _text_of(content) -> str:
 
 
 class OpenRouterLlm:
-    def __init__(self, api_key: str, client: httpx.Client | None = None):
+    def __init__(self, api_key: str, client: httpx.Client | None = None,
+                 sleep: Callable[[float], None] = time.sleep):
         self.api_key = api_key
         self.client = client or httpx.Client(timeout=TIMEOUT)
+        self.sleep = sleep
 
     def _clean(self, text: str) -> str:
         return text.replace(self.api_key, "[REDACTED]") if self.api_key else text
 
     def complete(self, prompt: str, *, model: str, max_tokens: int) -> LlmReply:
         try:
-            resp = self.client.post(
-                OPENROUTER_URL,
+            resp = post_with_retry(
+                self.client, OPENROUTER_URL, sleep=self.sleep,
                 headers={"Authorization": f"Bearer {self.api_key}"},
                 json={"model": model, "messages": [{"role": "user", "content": prompt}],
                       "max_tokens": max_tokens})
@@ -85,8 +90,11 @@ class OpenRouterLlm:
             choice = {}
         message = choice.get("message")
         content = message.get("content") if isinstance(message, dict) else None
-        return LlmReply(text=_text_of(content),
-                        stop=_FINISH.get(choice.get("finish_reason"), "other"))
+        finish = choice.get("finish_reason")
+        if finish == "error":
+            # Un texto parcial nunca debe llegar al control de cifras ni publicarse.
+            raise LlmError("OpenRouter terminó con finish_reason=error (respuesta incompleta)")
+        return LlmReply(text=_text_of(content), stop=_FINISH.get(finish, "other"))
 
 
 _ANTHROPIC_STOP = {"end_turn": "end", "stop_sequence": "end", "max_tokens": "max_tokens",

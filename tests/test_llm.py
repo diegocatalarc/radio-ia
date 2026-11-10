@@ -9,13 +9,14 @@ from radio.config import Config
 KEY = "sk-or-SECRET123"
 
 
-def make(handler):
+def make(handler, sleeps=None):
     seen = []
 
     def wrapped(req):
         seen.append(req)
         return handler(req)
-    llm = OpenRouterLlm(KEY, client=httpx.Client(transport=httpx.MockTransport(wrapped)))
+    llm = OpenRouterLlm(KEY, client=httpx.Client(transport=httpx.MockTransport(wrapped)),
+                        sleep=(sleeps.append if sleeps is not None else (lambda s: None)))
     return llm, seen
 
 
@@ -129,3 +130,46 @@ def test_llm_from_config_requires_key_and_rejects_unknown(monkeypatch):
     assert isinstance(llm_from_config(Config(llm_provider="openrouter")), OpenRouterLlm)
     with pytest.raises(ValueError, match="foo"):
         llm_from_config(Config(llm_provider="foo"))
+
+
+def test_finish_reason_error_raises_even_with_partial_text():
+    llm, _ = make(ok(content="texto parcial", finish="error"))
+    with pytest.raises(LlmError, match="error") as ei:
+        llm.complete("p", model="m", max_tokens=1)
+    assert "parcial" not in str(ei.value) and KEY not in str(ei.value)
+
+
+def test_retries_503_then_succeeds():
+    n = []
+
+    def h(req):
+        n.append(1)
+        return httpx.Response(503, text="busy") if len(n) == 1 else ok()(req)
+    sleeps = []
+    llm, seen = make(h, sleeps)
+    assert llm.complete("p", model="m", max_tokens=1).text == "Hola"
+    assert len(seen) == 2 and sleeps == [0.5]
+
+
+def test_gives_up_after_three_attempts_keeps_redaction():
+    sleeps = []
+    llm, seen = make(lambda r: httpx.Response(429, json={"error": {"message": f"slow {KEY}"}}), sleeps)
+    with pytest.raises(LlmError, match="429") as ei:
+        llm.complete("p", model="m", max_tokens=1)
+    assert len(seen) == 3 and sleeps == [0.5, 2.0] and KEY not in str(ei.value)
+
+
+def test_no_retry_on_401():
+    llm, seen = make(lambda r: httpx.Response(401, json={"error": {"message": "bad"}}))
+    with pytest.raises(LlmError, match="401"):
+        llm.complete("p", model="m", max_tokens=1)
+    assert len(seen) == 1
+
+
+def test_retries_transport_error_then_gives_up_without_leak():
+    def boom(req):
+        raise httpx.ConnectError("down " + KEY)
+    llm, seen = make(boom)
+    with pytest.raises(LlmError) as ei:
+        llm.complete("p", model="m", max_tokens=1)
+    assert len(seen) == 3 and KEY not in str(ei.value)
