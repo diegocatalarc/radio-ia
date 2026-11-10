@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Sample AI News</title>
+    <link>https://example.com</link>
+    <description>Sample feed</description>
+    <item>
+      <title>Nueva ley de IA</title>
+      <link>https://example.com/a1</link>
+      <description>Resumen uno</description>
+      <pubDate>Mon, 09 Nov 2026 12:00:00 GMT</pubDate>
+    </item>
+    <item>
+      <title>Inversión récord en chips</title>
+      <link>https://example.com/a2</link>
+      <description>Resumen dos</description>
+      <pubDate>Mon, 09 Nov 2026 18:00:00 GMT</pubDate>
+    </item>
+    <item>
+      <title>Noticia antigua</title>
+      <link>https://example.com/old</link>
+      <description>Resumen viejo</description>
+      <pubDate>Mon, 01 Jan 2024 10:00:00 GMT</pubDate>
+    </item>
+  </channel>
+</rss>
