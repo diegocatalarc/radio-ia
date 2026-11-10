@@ -4,6 +4,7 @@ from __future__ import annotations
 import html
 import logging
 import re
+from decimal import Decimal, InvalidOperation
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -14,13 +15,19 @@ log = logging.getLogger(__name__)
 
 PROMPT_PATH = Path(__file__).parent / "prompts" / "script_es.md"
 DEFAULT_MODEL = "claude-sonnet-5-5"
-MAX_TOKENS = 8000
+# Con pensamiento adaptativo los tokens de razonamiento cuentan contra este límite.
+MAX_TOKENS = 16000
+WORDS_PER_STORY = 300
+MIN_WORDS = 600
+MAX_WORDS = 1600
 
 _MONTHS = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto",
            "septiembre", "octubre", "noviembre", "diciembre"]
 _TAG_RE = re.compile(r"<[^>]*>")
 _NUM_RE = re.compile(r"\d+(?:[.,]\d+)*")
 _THOUSANDS_RE = re.compile(r"^\d{1,3}(?:[.,]\d{3})+$")
+_BILLION_SRC_RE = re.compile(r"(\d+(?:[.,]\d+)?)\s*-?\s*billions?\b", re.I)
+_BILLON_RE = re.compile(r"\bbill(?:ón|on|ones)\b", re.I)
 _FENCE_RE = re.compile(r"^\s*```\w*\s*$")
 _HEADER_RE = re.compile(
     r"^\s*[*_#>\s]*(TITULO|TÍTULO|USADAS)\s*[*_]*\s*:\s*[*_]*\s*(.*)$", re.I)
@@ -32,6 +39,10 @@ class ScriptGroundingError(Exception):
 
 class ScriptTruncatedError(Exception):
     """La respuesta del modelo se cortó por max_tokens."""
+
+
+class ScriptRefusedError(Exception):
+    """El modelo se negó a escribir el guion (stop_reason == "refusal")."""
 
 
 @dataclass
@@ -61,32 +72,63 @@ def unsupported_numbers(text: str, stories: list[Story]) -> list[str]:
     de magnitud ("mil millones" vs "millones") y las cifras escritas con palabras.
     """
     allowed: set[str] = set()
+    billon_ok = False
     for s in stories:
         src = " ".join([s.title, _clean(s.summary), _clean(s.body)])
         allowed |= {_canon(t) for t in _NUM_RE.findall(src)}
+        # "2.5 billion" (inglés, 10^9) se dice "2,5 mil millones": admite también
+        # la cifra ×1000 ("2.500 millones" / "2500"), solo junto a "billion".
+        for m in _BILLION_SRC_RE.finditer(src):
+            try:
+                scaled = Decimal(_canon(m.group(1))) * 1000
+            except InvalidOperation:
+                continue
+            if scaled == scaled.to_integral_value():
+                allowed.add(str(int(scaled)))
+        billon_ok = billon_ok or bool(_BILLON_RE.search(src))
     bad: list[str] = []
-    for tok in _NUM_RE.findall(_clean(text)):
+    clean = _clean(text)
+    for tok in _NUM_RE.findall(clean):
         if _canon(tok) not in allowed and tok not in bad:
             bad.append(tok)
+    # "billón"/"billones" en español son 10^12: error típico al traducir "billion".
+    if not billon_ok:
+        for m in _BILLON_RE.finditer(clean):
+            w = m.group(0).lower()
+            if w not in bad:
+                bad.append(w)
     return bad
 
 
 def _render_story(s: Story) -> str:
-    head = f"[id: {s.id}] {s.title}\nFuente: {s.source} ({s.url})\nResumen: {_clean(s.summary)}"
+    head = (f"[id: {s.id}] {_clean(s.title)}\nFuente: {s.source} ({s.url})\n"
+            f"Resumen: {_clean(s.summary)}")
     if s.body is None:
-        return head + "\n(SOLO TITULAR Y RESUMEN: no afirmes ningún detalle más allá de esto.)"
-    return head + f"\nTexto completo: {_clean(s.body)}"
+        inner = head + "\n(SOLO TITULAR Y RESUMEN: no afirmes ningún detalle más allá de esto.)"
+    else:
+        inner = head + f"\nTexto completo: {_clean(s.body)}"
+    return f'<fuente id="{s.id}">\n{inner}\n</fuente>'
 
 
 def _spoken_date(d: date) -> str:
     return f"{d.day} de {_MONTHS[d.month - 1]} de {d.year}"
 
 
+def word_range(n_stories: int) -> tuple[int, int]:
+    """Rango de palabras del guion: ~300 por historia, entre 600 y 1600 en total."""
+    target = min(MAX_WORDS, max(MIN_WORDS, WORDS_PER_STORY * n_stories))
+    return max(MIN_WORDS, round(target * 85 / 100)), min(MAX_WORDS, round(target * 115 / 100))
+
+
 def _build_prompt(stories: list[Story], today: date, corrections: list[str],
                   extra: str = "") -> str:
     tpl = PROMPT_PATH.read_text(encoding="utf-8")
     corr = "\n".join(f"- {c}" for c in corrections) or "(ninguna)"
+    lo, hi = word_range(len(stories))
     prompt = (tpl.replace("{{FECHA_HABLADA}}", _spoken_date(today))
+              .replace("{{N_HISTORIAS}}", str(len(stories)))
+              .replace("{{PALABRAS_MIN}}", str(lo))
+              .replace("{{PALABRAS_MAX}}", str(hi))
               .replace("{{CORRECCIONES}}", corr)
               .replace("{{HISTORIAS}}", "\n\n".join(_render_story(s) for s in stories)))
     return prompt + extra
@@ -128,6 +170,21 @@ def _response_text(resp) -> str | None:
     return None
 
 
+def _generate(client, model: str, prompt: str):
+    """Una llamada a Claude; reintenta UNA vez si se corta por max_tokens."""
+    for attempt in range(2):
+        resp = client.messages.create(model=model, max_tokens=MAX_TOKENS,
+                                      messages=[{"role": "user", "content": prompt}])
+        reason = getattr(resp, "stop_reason", None)
+        if reason == "refusal":
+            raise ScriptRefusedError("El modelo rechazó escribir el guion (stop_reason=refusal)")
+        if reason == "max_tokens":
+            log.warning("Respuesta truncada por max_tokens (intento %d)", attempt + 1)
+            continue
+        return resp
+    raise ScriptTruncatedError("La respuesta se truncó por max_tokens tras reintentar")
+
+
 def select_and_write(stories: list[Story], today: date, corrections: list[str],
                      client, *, model: str = DEFAULT_MODEL) -> ScriptResult:
     # Fuentes admitidas además de las historias: la fecha de hoy y las correcciones.
@@ -142,10 +199,7 @@ def select_and_write(stories: list[Story], today: date, corrections: list[str],
     problem = ""
     for _ in range(2):
         prompt = _build_prompt(stories, today, corrections, feedback)
-        resp = client.messages.create(model=model, max_tokens=MAX_TOKENS,
-                                      messages=[{"role": "user", "content": prompt}])
-        if getattr(resp, "stop_reason", None) == "max_tokens":
-            raise ScriptTruncatedError("La respuesta se truncó por max_tokens")
+        resp = _generate(client, model, prompt)
         raw = _response_text(resp)
         if raw is None:
             problem = "la respuesta no contiene texto"
@@ -163,7 +217,8 @@ def select_and_write(stories: list[Story], today: date, corrections: list[str],
                         "fuentes: " + ", ".join(bad) + ". Reescribe el guion sin ellas.")
             continue
         words = len(result.text.split())
-        if not 1300 <= words <= 1600:
-            log.warning("Guion de %d palabras (objetivo 1300-1600)", words)
+        lo, hi = word_range(len(stories))
+        if not lo <= words <= hi:
+            log.warning("Guion de %d palabras (objetivo %d-%d)", words, lo, hi)
         return result
     raise ScriptGroundingError("Guion no válido tras reintento: " + problem)

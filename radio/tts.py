@@ -69,6 +69,8 @@ class OpenAITts:
     max_chars = 4000
     url = "https://api.openai.com/v1/audio/speech"
     model = "gpt-4o-mini-tts"
+    instructions = ("Habla en español latinoamericano neutro, con tono natural, cálido y "
+                    "claro de radio matutina; ritmo pausado")
 
     def __init__(self, api_key: str, voice: str, client: httpx.Client | None = None):
         self.api_key = api_key
@@ -80,7 +82,7 @@ class OpenAITts:
             self.url,
             headers={"Authorization": f"Bearer {self.api_key}"},
             json={"model": self.model, "input": chunk, "voice": self.voice,
-                  "response_format": "mp3"},
+                  "response_format": "mp3", "instructions": self.instructions},
         )
         resp.raise_for_status()
         return resp.content

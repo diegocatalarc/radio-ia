@@ -65,6 +65,9 @@ import pytest
 from radio.config import Config
 from radio.tts import ElevenLabsTts, OpenAITts, provider_from_config
 
+OPENAI_INSTRUCTIONS = ("Habla en español latinoamericano neutro, con tono natural, cálido y claro "
+                       "de radio matutina; ritmo pausado")
+
 
 def _client(status=200, body=b"MP3DATA"):
     seen = []
@@ -88,6 +91,7 @@ def test_openai_request_shape():
     assert json.loads(req.content) == {
         "model": "gpt-4o-mini-tts", "input": "Hola mundo.",
         "voice": "alloy", "response_format": "mp3",
+        "instructions": OPENAI_INSTRUCTIONS,
     }
 
 
