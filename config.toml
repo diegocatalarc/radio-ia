@@ -1,7 +1,13 @@
+# Zona horaria del oyente: define "hoy" y la fecha de cada episodio.
+# Si la cambias, recalcula también el cron de .github/workflows/daily.yml (ver README).
 timezone = "America/Santiago"
-publish_hour = 7
+# Solo es el respaldo de la fecha de publicación (pubDate) si un episodio no la trae.
+# Los episodios nuevos usan su hora real de generación. 2 = 02:00, hora del cron.
+publish_hour = 2
 model = "claude-sonnet-5-5"
 max_stories = 8
+# IMPORTANTE: reemplaza por https://<tu-usuario-de-github>.github.io/<nombre-del-repo>
+# (sin barra final). El feed usa esta URL para los enlaces a los MP3.
 site_url = "https://example.github.io/radio-ia"
 tts_provider = "openai"
 tts_voice = ""

@@ -1,0 +1,98 @@
+name: Episodio diario
+
+on:
+  schedule:
+    # Principal: 05:00 UTC = 02:00 en Chile con horario de verano (UTC-3).
+    - cron: "0 5 * * *"
+    # Respaldo: una hora después; no hace nada si el episodio de hoy ya existe.
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+# Nunca dos ejecuciones a la vez (la segunda espera a que termine la primera).
+concurrency:
+  group: radio-ia-daily
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  episode:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Instalar el proyecto
+        run: pip install .
+
+      # Los datos (site/ + state.json) viven en la rama gh-pages, que es también
+      # la que publica GitHub Pages. Se clona dentro de site/.
+      - name: Recuperar datos previos (rama gh-pages)
+        run: |
+          set -euo pipefail
+          repo_url="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          if git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
+            git clone --quiet --branch gh-pages "$repo_url" site
+          else
+            mkdir site
+            git -C site init --quiet --initial-branch=gh-pages
+            git -C site remote add origin "$repo_url"
+          fi
+          touch site/.nojekyll
+          if [ -f site/state.json ]; then cp site/state.json state.json; fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Comprobar si hoy ya hay episodio (solo respaldo)
+        id: guard
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ] && [ "${{ github.event.schedule }}" = "0 6 * * *" ] \
+             && python -m radio.check; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Respaldo::El episodio de hoy ya existe; no se hace nada."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Generar episodio
+        id: run
+        if: steps.guard.outputs.skip != 'true'
+        run: |
+          set +e
+          python -m radio.run
+          code=$?
+          set -e
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          if [ "$code" -eq 2 ]; then
+            echo "::notice title=Sin episodio hoy::No había suficientes historias nuevas; no se publicó nada."
+            exit 0
+          fi
+          exit "$code"
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+
+      - name: Publicar en gh-pages
+        if: steps.guard.outputs.skip != 'true' && steps.run.outputs.code == '0'
+        run: |
+          set -euo pipefail
+          python -m radio.check --prune
+          cp state.json site/state.json
+          cd site
+          git config user.name "radio-ia[bot]"
+          git config user.email "radio-ia-bot@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Sin cambios que publicar"
+          else
+            git commit --quiet -m "Episodio $(date -u +%F)"
+            git push origin HEAD:gh-pages
+          fi
