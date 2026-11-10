@@ -7,9 +7,11 @@ dependencies = [
     "feedparser",
     "httpx",
     "trafilatura",
-    "anthropic",
     "pytest",
 ]
+
+[project.optional-dependencies]
+anthropic = ["anthropic"]
 
 [build-system]
 requires = ["setuptools>=68"]

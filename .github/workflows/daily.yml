@@ -36,6 +36,7 @@ jobs:
           cache-dependency-path: pyproject.toml
 
       - name: Instalar el proyecto
+        # El SDK de anthropic es un extra opcional ('.[anthropic]'); con OpenRouter no hace falta.
         run: pip install .
 
       - name: Diagnóstico de feeds (solo si check_feeds=true)
@@ -96,6 +97,8 @@ jobs:
           fi
           exit "$code"
         env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          # Opcionales: solo si cambias llm_provider / tts_provider en config.toml.
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}

@@ -4,14 +4,23 @@ timezone = "America/Santiago"
 # Solo es el respaldo de la fecha de publicación (pubDate) si un episodio no la trae.
 # Los episodios nuevos usan su hora real de generación. 2 = 02:00, hora del cron.
 publish_hour = 2
-model = "claude-sonnet-5-5"
+# Proveedor del LLM: "openrouter" (por defecto, usa OPENROUTER_API_KEY) o "anthropic" (ANTHROPIC_API_KEY,
+# requiere instalar el extra: pip install '.[anthropic]'). `model` es el id de modelo de ese proveedor
+# (en OpenRouter: anthropic/claude-sonnet-5.5; en Anthropic: claude-sonnet-5-5).
+llm_provider = "openrouter"
+model = "anthropic/claude-sonnet-5.5"
 max_stories = 6
 # Historias candidatas que ve Claude al elegir (reparto equilibrado entre fuentes).
 pool_size = 30
 # IMPORTANTE: reemplaza por https://<tu-usuario-de-github>.github.io/<nombre-del-repo>
 # (sin barra final). El feed usa esta URL para los enlaces a los MP3.
 site_url = "https://diegocatalarc.github.io/radio-ia"
-tts_provider = "openai"
+# Voz: "openrouter" (por defecto, OPENROUTER_API_KEY), "openai" (OPENAI_API_KEY) o "elevenlabs".
+tts_provider = "openrouter"
+# Modelo de voz de OpenRouter (vacío = microsoft/mai-voice-2.1-flash). Ver las voces de cada modelo en
+# https://openrouter.ai/api/v1/models?output_modalities=speech (campo supported_voices).
+tts_model = ""
+# Vacío = es-MX-Valeria:MAI-Voice-2.1-Flash con el modelo por defecto. Escucha las muestras antes de fiarte.
 tts_voice = ""
 
 feeds = [
