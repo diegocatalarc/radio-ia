@@ -1,5 +1,5 @@
 import xml.etree.ElementTree as ET
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 from radio.feed import Episode, build_feed, upsert_episode
 
@@ -37,7 +37,7 @@ def test_title_with_ampersand_and_accents_is_escaped():
     guid = item.find("guid")
     assert guid.text == "2026-11-10" and guid.get("isPermaLink") == "false"
     assert item.findtext(ITUNES + "duration") == "600"
-    assert item.findtext("pubDate") == "Tue, 10 Nov 2026 07:00:00 -0300"
+    assert item.findtext("pubDate") == "Tue, 10 Nov 2026 02:00:00 -0300"
 
 
 def test_upsert_replaces_same_day_episode():
@@ -56,3 +56,22 @@ def test_upsert_keeps_latest_60():
     assert len(eps) == 60
     assert eps[0].day == d + timedelta(days=69)
     assert eps[-1].day == d + timedelta(days=10)
+
+
+def test_published_used_verbatim_regardless_of_tz():
+    pub = datetime(2026, 11, 10, 2, 5, 9, tzinfo=timezone(timedelta(hours=-3)))
+    xml = build_feed([ep(date(2026, 11, 10), published=pub)], "https://x", "Asia/Tokyo")
+    item = ET.fromstring(xml.encode("utf-8")).find("channel/item")
+    assert item.findtext("pubDate") == "Tue, 10 Nov 2026 02:05:09 -0300"
+
+
+def test_fallback_uses_custom_publish_hour():
+    xml = build_feed([ep(date(2026, 11, 10))], "https://x", "America/Santiago", publish_hour=7)
+    item = ET.fromstring(xml.encode("utf-8")).find("channel/item")
+    assert item.findtext("pubDate") == "Tue, 10 Nov 2026 07:00:00 -0300"
+
+
+def test_control_chars_are_stripped():
+    xml = build_feed([ep(date(2026, 11, 10), title="a\x0bb\x00c")], "https://x", "UTC")
+    item = ET.fromstring(xml.encode("utf-8")).find("channel/item")
+    assert item.findtext("title") == "abc"
