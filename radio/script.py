@@ -14,7 +14,7 @@ from radio.models import Story
 log = logging.getLogger(__name__)
 
 PROMPT_PATH = Path(__file__).parent / "prompts" / "script_es.md"
-DEFAULT_MODEL = "claude-sonnet-5-5"
+DEFAULT_MODEL = "anthropic/claude-sonnet-5.5"
 # Con pensamiento adaptativo los tokens de razonamiento cuentan contra este límite.
 MAX_TOKENS = 16000
 WORDS_PER_STORY = 300
@@ -162,12 +162,9 @@ def _parse(raw: str, stories: list[Story]) -> tuple[ScriptResult | None, str | N
     return ScriptResult(text=text, used=used, title=title), None
 
 
-def _response_text(resp) -> str | None:
-    for block in getattr(resp, "content", None) or []:
-        t = getattr(block, "text", None)
-        if isinstance(t, str) and t.strip():
-            return t
-    return None
+def _response_text(reply) -> str | None:
+    text = getattr(reply, "text", None)
+    return text if isinstance(text, str) and text.strip() else None
 
 
 SELECT_MAX = 6
@@ -203,8 +200,7 @@ def select_stories(pool: list[Story], today: date, client, model: str = DEFAULT_
         "Responde SOLO con una línea con este formato exacto: ELEGIDAS: id1,id2,id3\n\n"
         + "\n\n".join(_render_candidate(s) for s in newest))
     try:
-        resp = client.messages.create(model=model, max_tokens=1000,
-                                      messages=[{"role": "user", "content": prompt}])
+        resp = client.complete(prompt, model=model, max_tokens=1000)
         raw = _response_text(resp) or ""
     except Exception as exc:
         log.warning("selección fallida (%s); se usan las más nuevas", type(exc).__name__)
@@ -220,11 +216,10 @@ def select_stories(pool: list[Story], today: date, client, model: str = DEFAULT_
 
 
 def _generate(client, model: str, prompt: str):
-    """Una llamada a Claude; reintenta UNA vez si se corta por max_tokens."""
+    """Una llamada al LLM; reintenta UNA vez si se corta por max_tokens."""
     for attempt in range(2):
-        resp = client.messages.create(model=model, max_tokens=MAX_TOKENS,
-                                      messages=[{"role": "user", "content": prompt}])
-        reason = getattr(resp, "stop_reason", None)
+        resp = client.complete(prompt, model=model, max_tokens=MAX_TOKENS)
+        reason = getattr(resp, "stop", None)
         if reason == "refusal":
             raise ScriptRefusedError("El modelo rechazó escribir el guion (stop_reason=refusal)")
         if reason == "max_tokens":

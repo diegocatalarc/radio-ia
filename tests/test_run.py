@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from zoneinfo import ZoneInfo
 
 from radio.config import Config
+from radio.llm import LlmReply
 from radio.feed import Episode
 import pytest
 
@@ -43,22 +44,19 @@ class FakeClaude:
         self.n_used = n_used
         self.pick = lambda ids: ids[:2] + ids[-1:]
         self.calls = []
-        self.messages = SimpleNamespace(create=self._create)
 
-    def _create(self, **kw):
-        prompt = kw["messages"][0]["content"]
+    def complete(self, prompt, *, model, max_tokens):
         self.calls.append(prompt)
         ids = [f"{i}" for i in range(0, 0)]
         import re
         ids = re.findall(r"\[id: ([^\]]+)\]", prompt)
         if "ELEGIDAS" in prompt:  # llamada de selección
             self.pool_ids = ids
-            return SimpleNamespace(content=[SimpleNamespace(
-                text="ELEGIDAS: " + ",".join(self.pick(ids)))], stop_reason="end_turn")
+            return LlmReply(text="ELEGIDAS: " + ",".join(self.pick(ids)), stop="end")
         if self.n_used:
             ids = ids[:self.n_used]
-        return SimpleNamespace(content=[SimpleNamespace(
-            text=f"TITULO: Titulo del dia\nUSADAS: {','.join(ids)}\n\nHola oyentes.")])
+        return LlmReply(
+            text=f"TITULO: Titulo del dia\nUSADAS: {','.join(ids)}\n\nHola oyentes.", stop="end")
 
 
 class FakeTts:
@@ -144,9 +142,8 @@ def test_failure_midway_leaves_existing_files_untouched(tmp_path):
 
 def test_grounding_error_leaves_files_untouched(tmp_path):
     class Bad(FakeClaude):
-        def _create(self, **kw):
-            return SimpleNamespace(content=[SimpleNamespace(
-                text="TITULO: t\nUSADAS: 0\n\nCifra 987654.")])
+        def complete(self, prompt, *, model, max_tokens):
+            return LlmReply(text="TITULO: t\nUSADAS: 0\n\nCifra 987654.", stop="end")
     d = deps(tmp_path, claude=Bad())
     res = run(cfg(), NOW, d)
     assert res.exit_code == 1
@@ -255,11 +252,10 @@ def test_skipped_run_with_failed_feeds_reports_them(tmp_path):
 
 def test_main_logs_missing_key_variable_name(monkeypatch, caplog):
     monkeypatch.setattr("radio.run.load_config", lambda: cfg(site_url="https://u.github.io/r"))
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "k")
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     with caplog.at_level(logging.ERROR):
         assert main() == 1
-    assert any("OPENAI_API_KEY" in r.getMessage() for r in caplog.records)
+    assert any("OPENROUTER_API_KEY" in r.getMessage() for r in caplog.records)
 
 
 def test_main_rejects_placeholder_site_url(monkeypatch, caplog):

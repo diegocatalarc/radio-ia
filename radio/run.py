@@ -15,6 +15,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from radio.config import Config, load_config, validate_config
+from radio.llm import llm_from_config
 from radio.feed import Episode, build_feed, upsert_episode
 from radio.script import select_and_write, select_stories
 from radio.sources import balance_pool, collect_pool, fetch_bodies
@@ -182,14 +183,12 @@ def _run(config: Config, now: datetime, deps: Deps) -> RunResult:
 
 
 def main() -> int:
-    import anthropic
-
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     try:
         from radio.tts import provider_from_config
         config = load_config()
         validate_config(config)
-        deps = Deps(claude=anthropic.Anthropic(), tts=provider_from_config(config),
+        deps = Deps(claude=llm_from_config(config), tts=provider_from_config(config),
                     http=None, site_dir=Path("site"), state_path=Path("state.json"))
     except Exception as exc:
         # Los mensajes de configuración solo nombran variables (nunca valores de claves).

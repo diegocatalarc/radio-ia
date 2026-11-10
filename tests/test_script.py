@@ -3,6 +3,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from radio.llm import LlmReply
 from radio.models import Story
 from radio.script import (ScriptGroundingError, ScriptRefusedError, ScriptTruncatedError,
                           select_and_write, select_stories, unsupported_numbers, word_range)
@@ -17,11 +18,10 @@ class FakeClient:
     def __init__(self, replies):
         self.replies = list(replies)
         self.prompts = []
-        self.messages = SimpleNamespace(create=self._create)
 
-    def _create(self, **kwargs):
-        self.prompts.append(kwargs["messages"][0]["content"])
-        return SimpleNamespace(content=[SimpleNamespace(text=self.replies.pop(0))])
+    def complete(self, prompt, *, model, max_tokens):
+        self.prompts.append(prompt)
+        return LlmReply(text=self.replies.pop(0), stop="end")
 
 
 def reply(body, used="a"):
@@ -124,12 +124,12 @@ def test_used_ids_not_digit_checked():
 def _stop_client(reasons, texts=None):
     calls = []
 
-    def create(**kw):
-        calls.append(kw)
+    def complete(prompt, *, model, max_tokens):
+        calls.append({"model": model, "max_tokens": max_tokens})
         i = len(calls) - 1
         text = (texts or [reply("Bien.")] * 5)[i]
-        return SimpleNamespace(content=[SimpleNamespace(text=text)], stop_reason=reasons[i])
-    return SimpleNamespace(messages=SimpleNamespace(create=create)), calls
+        return LlmReply(text=text, stop=reasons[i])
+    return SimpleNamespace(complete=complete), calls
 
 
 def test_truncated_twice_raises():
@@ -140,13 +140,13 @@ def test_truncated_twice_raises():
 
 
 def test_truncated_once_then_ok_retries():
-    client, calls = _stop_client(["max_tokens", "end_turn"])
+    client, calls = _stop_client(["max_tokens", "end"])
     assert select_and_write([story()], date(2026, 11, 10), [], client).text == "Bien."
     assert len(calls) == 2
 
 
 def test_max_tokens_is_16000():
-    client, calls = _stop_client(["end_turn"])
+    client, calls = _stop_client(["end"])
     select_and_write([story()], date(2026, 11, 10), [], client)
     assert calls[0]["max_tokens"] == 16000
 
@@ -205,12 +205,12 @@ def test_prompt_translates_billion_rule():
 
 def test_response_without_text_block_retries():
     calls = []
-    def create(**kw):
+    def complete(prompt, *, model, max_tokens):
         calls.append(1)
         if len(calls) == 1:
-            return SimpleNamespace(content=[SimpleNamespace(type="thinking")])
-        return SimpleNamespace(content=[SimpleNamespace(text=reply("Bien."))])
-    client = SimpleNamespace(messages=SimpleNamespace(create=create))
+            return LlmReply(text="", stop="end")
+        return LlmReply(text=reply("Bien."), stop="end")
+    client = SimpleNamespace(complete=complete)
     assert select_and_write([story()], date(2026, 11, 10), [], client).text == "Bien."
     assert len(calls) == 2
 
@@ -224,12 +224,12 @@ def _pool(n):
 def _sel_client(reply_text=None, exc=None):
     prompts = []
 
-    def create(**kw):
-        prompts.append(kw["messages"][0]["content"])
+    def complete(prompt, *, model, max_tokens):
+        prompts.append(prompt)
         if exc:
             raise exc
-        return SimpleNamespace(content=[SimpleNamespace(text=reply_text)], stop_reason="end_turn")
-    return SimpleNamespace(messages=SimpleNamespace(create=create)), prompts
+        return LlmReply(text=reply_text, stop="end")
+    return SimpleNamespace(complete=complete), prompts
 
 
 def test_select_stories_returns_chosen_in_reply_order_ignoring_unknown_and_dupes():
