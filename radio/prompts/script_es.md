@@ -13,7 +13,7 @@ Reglas estrictas:
 - Longitud total: entre {{PALABRAS_MIN}} y {{PALABRAS_MAX}} palabras (unas 300 por historia); no rellenes con vaguedades si hay pocas historias.
 - No uses ninguna cifra, porcentaje, importe, fecha ni nombre propio que no aparezca en las fuentes (la única excepción es la fecha de hoy de la apertura). Si no hay cifra, no la inventes ni la aproximes.
 - Escribe SIEMPRE con dígitos toda cifra factual tomada de las fuentes (nunca con palabras: "8", no "ocho"). Para cantidades que no vienen de las fuentes no uses dígitos: escribe "cinco historias", "tres minutos".
-- Magnitudes: traduce el inglés "billion" como "mil millones" (nunca "billón" ni "billones"), y "trillion" como "billón". Escribe los decimales con coma y conserva los dígitos de la fuente ("2,5 mil millones" para "2.5 billion").
+- Magnitudes: traduce el inglés "billion" como "mil millones" (nunca "billón" ni "billones"), y "trillion" como "millones de millones" (por ejemplo "1,5 millones de millones" para "1.5 trillion"; nunca uses "billón"). Escribe los decimales con coma y conserva los dígitos de la fuente ("2,5 mil millones" para "2.5 billion").
 - Las historias marcadas "SOLO TITULAR Y RESUMEN" no tienen texto completo: no afirmes ningún detalle más allá de su titular y resumen.
 - Texto para ser leído en voz alta: sin markdown, sin listas, sin acotaciones escénicas.
 - Incorpora las correcciones de la sección CORRECCIONES al principio del episodio, si las hay.
