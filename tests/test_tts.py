@@ -54,3 +54,85 @@ def test_synthesize_concatenates_chunks_in_order():
     assert len(p.calls) > 1
     assert " ".join(p.calls) == _normalize(LONG)
     assert audio == b"".join(f"[{i}]".encode() for i in range(1, len(p.calls) + 1))
+
+
+# --- adaptadores de proveedor (sin red: transporte httpx falso) ---
+import json
+
+import httpx
+import pytest
+
+from radio.config import Config
+from radio.tts import ElevenLabsTts, OpenAITts, provider_from_config
+
+
+def _client(status=200, body=b"MP3DATA"):
+    seen = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(status, content=body)
+
+    return httpx.Client(transport=httpx.MockTransport(handler)), seen
+
+
+def test_openai_request_shape():
+    client, seen = _client()
+    tts = OpenAITts(api_key="k-test", voice="alloy", client=client)
+    assert tts.max_chars == 4000
+    assert tts.speak("Hola mundo.") == b"MP3DATA"
+    req = seen[0]
+    assert req.method == "POST"
+    assert str(req.url) == "https://api.openai.com/v1/audio/speech"
+    assert req.headers["authorization"] == "Bearer k-test"
+    assert json.loads(req.content) == {
+        "model": "gpt-4o-mini-tts", "input": "Hola mundo.",
+        "voice": "alloy", "response_format": "mp3",
+    }
+
+
+def test_elevenlabs_request_shape():
+    client, seen = _client()
+    tts = ElevenLabsTts(api_key="k-test", voice="VOICE123", client=client)
+    assert tts.max_chars == 4500
+    assert tts.speak("Hola mundo.") == b"MP3DATA"
+    req = seen[0]
+    assert req.method == "POST"
+    assert req.url.path == "/v1/text-to-speech/VOICE123"
+    assert req.url.host == "api.elevenlabs.io"
+    assert req.url.params["output_format"] == "mp3_44100_128"
+    assert req.headers["xi-api-key"] == "k-test"
+    assert json.loads(req.content) == {"text": "Hola mundo.", "model_id": "eleven_multilingual_v2"}
+
+
+@pytest.mark.parametrize("cls", [OpenAITts, ElevenLabsTts])
+def test_http_error_raises(cls):
+    client, _ = _client(status=401, body=b"nope")
+    with pytest.raises(httpx.HTTPStatusError):
+        cls(api_key="k", voice="v", client=client).speak("x")
+
+
+def test_provider_from_config(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "k1")
+    monkeypatch.setenv("ELEVENLABS_API_KEY", "k2")
+    assert isinstance(provider_from_config(Config(tts_provider="openai", tts_voice="alloy")), OpenAITts)
+    assert isinstance(provider_from_config(Config(tts_provider="elevenlabs", tts_voice="v")), ElevenLabsTts)
+
+
+def test_provider_from_config_openai_default_voice(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "k1")
+    assert provider_from_config(Config(tts_provider="openai")).voice == "alloy"
+
+
+def test_provider_from_config_errors(monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("ELEVENLABS_API_KEY", raising=False)
+    with pytest.raises(ValueError, match="OPENAI_API_KEY"):
+        provider_from_config(Config(tts_provider="openai"))
+    with pytest.raises(ValueError, match="ELEVENLABS_API_KEY"):
+        provider_from_config(Config(tts_provider="elevenlabs", tts_voice="v"))
+    with pytest.raises(ValueError, match="foo"):
+        provider_from_config(Config(tts_provider="foo"))
+    monkeypatch.setenv("ELEVENLABS_API_KEY", "k")
+    with pytest.raises(ValueError, match="tts_voice"):
+        provider_from_config(Config(tts_provider="elevenlabs", tts_voice=""))

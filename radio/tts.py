@@ -1,8 +1,13 @@
 """Texto a voz: trocea el guion, sintetiza cada trozo y une el MP3."""
 from __future__ import annotations
 
+import os
 import re
 from typing import Protocol
+
+import httpx
+
+from radio.config import Config
 
 
 class TtsProvider(Protocol):
@@ -55,3 +60,70 @@ def synthesize(text: str, provider: TtsProvider) -> bytes:
     """MP3 completo. Concatenar los bytes de los trozos es válido para MP3:
     los frames son independientes, y los reproductores los encadenan."""
     return b"".join(provider.speak(c) for c in split_text(text, provider.max_chars))
+
+
+TIMEOUT = 120.0
+
+
+class OpenAITts:
+    max_chars = 4000
+    url = "https://api.openai.com/v1/audio/speech"
+    model = "gpt-4o-mini-tts"
+
+    def __init__(self, api_key: str, voice: str, client: httpx.Client | None = None):
+        self.api_key = api_key
+        self.voice = voice
+        self.client = client or httpx.Client(timeout=TIMEOUT)
+
+    def speak(self, chunk: str) -> bytes:
+        resp = self.client.post(
+            self.url,
+            headers={"Authorization": f"Bearer {self.api_key}"},
+            json={"model": self.model, "input": chunk, "voice": self.voice,
+                  "response_format": "mp3"},
+        )
+        resp.raise_for_status()
+        return resp.content
+
+
+class ElevenLabsTts:
+    max_chars = 4500
+    base_url = "https://api.elevenlabs.io/v1/text-to-speech"
+    model_id = "eleven_multilingual_v2"
+
+    def __init__(self, api_key: str, voice: str, client: httpx.Client | None = None):
+        self.api_key = api_key
+        self.voice = voice  # voice_id
+        self.client = client or httpx.Client(timeout=TIMEOUT)
+
+    def speak(self, chunk: str) -> bytes:
+        resp = self.client.post(
+            f"{self.base_url}/{self.voice}",
+            params={"output_format": "mp3_44100_128"},
+            headers={"xi-api-key": self.api_key},
+            json={"text": chunk, "model_id": self.model_id},
+        )
+        resp.raise_for_status()
+        return resp.content
+
+
+OPENAI_DEFAULT_VOICE = "alloy"
+
+
+def _require_key(env_var: str) -> str:
+    key = os.environ.get(env_var, "")
+    if not key:
+        raise ValueError(f"Falta la variable de entorno {env_var} para el proveedor TTS")
+    return key
+
+
+def provider_from_config(config: Config) -> TtsProvider:
+    name = config.tts_provider
+    if name == "openai":
+        return OpenAITts(_require_key("OPENAI_API_KEY"), config.tts_voice or OPENAI_DEFAULT_VOICE)
+    if name == "elevenlabs":
+        key = _require_key("ELEVENLABS_API_KEY")
+        if not config.tts_voice:
+            raise ValueError("tts_voice (voice_id de ElevenLabs) es obligatorio con tts_provider = 'elevenlabs'")
+        return ElevenLabsTts(key, config.tts_voice)
+    raise ValueError(f"tts_provider desconocido: {name!r} (use 'openai' o 'elevenlabs')")
