@@ -55,9 +55,18 @@ def fetch_stories(feeds: list[str], since: datetime, client=None) -> list[Story]
                 resp = client.get(feed_url)
                 resp.raise_for_status()
                 parsed = feedparser.parse(resp.text)
-                source = parsed.feed.get("title") or urlparse(feed_url).netloc
-                for entry in parsed.entries:
-                    url = entry.get("link")
+            except Exception as exc:
+                log.warning("feed failed %s: %s", feed_url, exc)
+                continue
+            if parsed.get("bozo") and not parsed.entries:
+                log.warning(
+                    "malformed feed %s: %s", feed_url, parsed.get("bozo_exception")
+                )
+                continue
+            source = parsed.feed.get("title") or urlparse(feed_url).netloc
+            for entry in parsed.entries:
+                url = entry.get("link")
+                try:
                     published = _published(entry)
                     if not url or published is None or published < since:
                         continue
@@ -76,8 +85,8 @@ def fetch_stories(feeds: list[str], since: datetime, client=None) -> list[Story]
                             body=_extract_body(client, url),
                         )
                     )
-            except Exception as exc:
-                log.warning("feed failed %s: %s", feed_url, exc)
+                except Exception as exc:
+                    log.warning("entry failed %s: %s", url, exc)
     finally:
         if own_client:
             client.close()

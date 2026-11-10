@@ -68,3 +68,31 @@ def test_failing_feed_does_not_stop_others():
     assert len(stories) == 2
     bodies = {s.url: s.body for s in stories}
     assert bodies["https://example.com/a2"] is None
+
+
+def test_bad_entry_does_not_abort_rest_of_feed(monkeypatch):
+    import radio.sources as sources
+
+    real = sources.story_id
+
+    def flaky(url):
+        if url.endswith("a1"):
+            raise ValueError("boom")
+        return real(url)
+
+    monkeypatch.setattr(sources, "story_id", flaky)
+    client = FakeClient({FEED_URL: FIXTURE, "https://example.com/a1": ARTICLE_HTML,
+                         "https://example.com/a2": ARTICLE_HTML})
+    stories = fetch_stories([FEED_URL], SINCE, client=client)
+    assert [s.url for s in stories] == ["https://example.com/a2"]
+
+
+def test_malformed_feed_logs_warning_and_keeps_others(caplog):
+    bad = "https://bad.example/feed"
+    client = FakeClient({bad: "this is not xml at all", FEED_URL: FIXTURE,
+                         "https://example.com/a1": ARTICLE_HTML,
+                         "https://example.com/a2": ARTICLE_HTML})
+    with caplog.at_level("WARNING", logger="radio.sources"):
+        stories = fetch_stories([bad, FEED_URL], SINCE, client=client)
+    assert len(stories) == 2
+    assert any(bad in r.getMessage() for r in caplog.records)
