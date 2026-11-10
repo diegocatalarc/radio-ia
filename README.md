@@ -1,8 +1,10 @@
 # Radio IA
 
+Todo el flujo (LLM y voz) funciona con **una sola clave de API: `OPENROUTER_API_KEY`**.
+
 Podcast privado y diario, en español, sobre inteligencia artificial y su impacto económico.
 Cada madrugada un flujo de GitHub Actions lee fuentes RSS, elige las historias nuevas, le pide a
-Claude un guion, lo convierte en audio (OpenAI o ElevenLabs) y publica un feed de podcast en
+un LLM un guion, lo convierte en audio y publica un feed de podcast en
 GitHub Pages. Lo escuchas suscribiéndote al feed en tu app de podcasts.
 
 ## Cómo funciona (resumen)
@@ -45,10 +47,12 @@ del flujo puede ser sobrescrito por el push forzado.
 1. **Crea un repositorio público** en GitHub (por ejemplo `radio-ia`) y sube este código a `main`.
 2. **Edita `config.toml`**: cambia `site_url` por `https://<tu-usuario>.github.io/<nombre-del-repo>`
    (sin barra final) y haz commit.
-3. **Añade los secretos** en *Settings > Secrets and variables > Actions > New repository secret*:
-   - `ANTHROPIC_API_KEY` (siempre)
-   - `OPENAI_API_KEY` si `tts_provider = "openai"`
-   - `ELEVENLABS_API_KEY` si `tts_provider = "elevenlabs"` (puedes crear ambos; solo se usa el configurado)
+3. **Añade el secreto** `OPENROUTER_API_KEY` (la única clave necesaria; créala en
+   https://openrouter.ai/keys). Con la CLI de GitHub:
+   `gh secret set OPENROUTER_API_KEY -R diegocatalarc/radio-ia`
+   (o en *Settings > Secrets and variables > Actions > New repository secret*). Solo si cambias de
+   proveedor (ver "Cambiar de proveedor") hacen falta `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` o
+   `ELEVENLABS_API_KEY`; son opcionales.
 4. **Revisa los feeds antes de la primera noche**: ejecuta `python scripts/check_feeds.py` (con el
    proyecto instalado, `pip install -e .`). Para cada feed imprime si responde, cuántas entradas
    tiene, cuántas de las últimas 36 h y si se puede extraer el cuerpo de un par de artículos. Lo
@@ -73,22 +77,57 @@ con éxito, Pages activado desde `gh-pages` y el feed abierto en tu app de podca
 > El feed es **público pero no listado**: no aparece en directorios de podcasts, pero cualquiera
 > que conozca la URL puede escucharlo. No compartas el enlace si quieres que siga siendo privado.
 
+## Configuración de proveedores
+
+Campos de `config.toml`:
+
+| Campo | Valor por defecto | Significado |
+| - | - | - |
+| `llm_provider` | `"openrouter"` | `"openrouter"` o `"anthropic"` |
+| `model` | `anthropic/claude-sonnet-5.5` | id del modelo **del proveedor elegido** |
+| `tts_provider` | `"openrouter"` | `"openrouter"`, `"openai"` o `"elevenlabs"` |
+| `tts_model` | `""` | modelo de voz de OpenRouter (vacío = `microsoft/mai-voice-2.1-flash`) |
+| `tts_voice` | `""` | voz; vacío = `es-MX-Valeria:MAI-Voice-2.1-Flash` con el modelo por defecto |
+
+Un `llm_provider` o `tts_provider` desconocido se rechaza al arrancar con un mensaje claro.
+
+### Cambiar de proveedor
+
+- **LLM directo con Anthropic**: `llm_provider = "anthropic"`, `model = "claude-sonnet-5-5"`, instala el
+  extra (`pip install '.[anthropic]'`; en el flujo cambia `pip install .` por `pip install '.[anthropic]'`)
+  y define el secreto `ANTHROPIC_API_KEY`.
+- **Voz con OpenAI**: `tts_provider = "openai"`, `tts_voice = "alloy"` (u otra) y `OPENAI_API_KEY`.
+  **Voz con ElevenLabs**: `tts_provider = "elevenlabs"`, `tts_voice = "<voice_id>"` y `ELEVENLABS_API_KEY`.
+- **Otro modelo de voz en OpenRouter**: pon `tts_model` y `tts_voice` (obligatoria si cambias el modelo).
+  Las voces de cada modelo están en el campo `supported_voices` de
+  `https://openrouter.ai/api/v1/models?output_modalities=speech`. Para el MP3 el modelo debe admitir
+  `mp3` (algunos, como Gemini TTS y HeyGen, solo devuelven `pcm`). Las `instructions` de estilo
+  (español latinoamericano neutro) solo se envían a modelos de OpenAI, Google y Fish Audio, que las
+  usan según la documentación de OpenRouter.
+
 ## Elegir la voz
 
 ```bash
 python -m venv .venv && .venv/bin/pip install -e .
-OPENAI_API_KEY=... ELEVENLABS_API_KEY=... .venv/bin/python scripts/make_voice_samples.py
+OPENROUTER_API_KEY=... .venv/bin/python scripts/make_voice_samples.py
 ```
 
-Genera muestras en `samples/<proveedor>-<voz>.mp3`. Con `SAMPLE_OPENAI_VOICES="alloy,nova"` o
-`SAMPLE_ELEVENLABS_VOICES="<voice_id>"` eliges qué voces probar. Cuando decidas, pon en
-`config.toml` el `tts_provider` y la `tts_voice` (el nombre en OpenAI, el `voice_id` en ElevenLabs).
-Si `tts_voice` queda vacío, OpenAI usa `alloy` por defecto: elige una voz con
-`scripts/make_voice_samples.py` antes de confiar en ella. El adaptador de OpenAI envía además
-instrucciones de estilo (español latinoamericano neutro, tono cálido de radio matutina).
+Genera muestras en `samples/<proveedor>-<voz>.mp3` (sin claves no hace nada). Para OpenRouter lee las
+voces en español del modelo en el listado público; también puedes fijarlas con
+`SAMPLE_OPENROUTER_MODEL` y `SAMPLE_OPENROUTER_VOICES="voz1,voz2"` (y `SAMPLE_OPENAI_VOICES`,
+`SAMPLE_ELEVENLABS_VOICES` para los otros). **La calidad de la voz hay que comprobarla escuchando**:
+la voz por defecto se eligió por el listado (modelo con voces `es-MX` y salida MP3), no por haberla
+oído. Cuando decidas, ajusta `tts_model` y `tts_voice` en `config.toml`.
 
-Coste (estimaciones): ElevenLabs probablemente exige un plan de pago y supera el objetivo de
-~1 USD por episodio; OpenAI TTS más Claude Sonnet cuesta aproximadamente 0,2 a 0,4 USD por episodio.
+### Costes
+
+Verificado en el listado de modelos de OpenRouter (10-nov-2026): `anthropic/claude-sonnet-5.5`
+cuesta 2 USD por millón de tokens de entrada y 10 USD por millón de salida, con 1.000.000 de tokens de
+contexto; `microsoft/mai-voice-2.1-flash` cuesta 0,000015 USD por carácter de texto (15 USD por millón
+de caracteres). El resto es estimación: un guion de ~1.500 palabras son unos 9.000 caracteres, así que
+la voz costaría del orden de 0,14 USD por episodio (estimación) y el LLM unos centavos (estimación,
+depende del tamaño de las fuentes y de los tokens de razonamiento). Los precios cambian: compruébalos
+en https://openrouter.ai/models. ElevenLabs probablemente exige un plan de pago (estimación).
 
 ## Cambiar la zona horaria (y el cron)
 
