@@ -109,6 +109,7 @@ jobs:
           set -euo pipefail
           python -m radio.check --prune
           cp state.json site/state.json
+          cp web/index.html site/index.html
           cd site
           git config user.name "radio-ia[bot]"
           git config user.email "radio-ia-bot@users.noreply.github.com"
