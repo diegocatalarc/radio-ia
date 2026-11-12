@@ -257,8 +257,14 @@ def select_and_write(stories: list[Story], today: date, corrections: list[str],
         bad = unsupported_numbers(result.text, stories + extra_src)
         if bad:
             problem = "cifras no respaldadas por las fuentes: " + ", ".join(bad)
+            for tok in bad:  # contexto para diagnosticar qué dijo el modelo
+                i = result.text.find(tok)
+                log.warning("cifra no respaldada %r en: ...%s...", tok,
+                            result.text[max(0, i - 50): i + 50].replace("\n", " "))
             feedback = ("\n\nATENCIÓN: tu intento anterior incluía cifras ausentes de las "
-                        "fuentes: " + ", ".join(bad) + ". Reescribe el guion sin ellas.")
+                        "fuentes: " + ", ".join(bad) + ". Reescribe el guion sin ellas. "
+                        "Recuerda: cantidades que no vienen de las fuentes (cuántas "
+                        "historias, minutos, etc.) se escriben con palabras, nunca con dígitos.")
             continue
         words = len(result.text.split())
         lo, hi = word_range(len(stories))
