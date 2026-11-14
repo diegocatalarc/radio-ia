@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" version="2.0">
+  <channel>
+    <title>Radio IA</title>
+    <link>https://diegocatalarc.github.io/radio-ia/</link>
+    <description>Resumen diario en español sobre inteligencia artificial y su impacto económico.</description>
+    <language>es</language>
+    <itunes:author>Radio IA</itunes:author>
+    <itunes:explicit>false</itunes:explicit>
+    <item>
+      <title>Alarmas financieras, deuda en apuros y agentes que compran</title>
+      <description>Fed Sees Risks Tied to Elevated Asset Prices Partly Driven by AI | Blackstone’s QTS Is Cutting AI Debt Sale by More Than Half | Anthropic CEO Calls Computing Power Deepest Business Dilemma | Modine Shares Gain Most in Six Years After Samsung Buyout Talks | ChatGPT’s new Wallet lets AI agents shop and check out for you</description>
+      <guid isPermaLink="false">2026-11-14</guid>
+      <pubDate>Sat, 14 Nov 2026 10:31:20 -0300</pubDate>
+      <enclosure url="https://diegocatalarc.github.io/radio-ia/episodes/episodio-2026-11-14.mp3" length="9345600" type="audio/mpeg" />
+      <itunes:duration>467</itunes:duration>
+    </item>
+    <item>
+      <title>Nebius, SoftBank, Gemini 4 Hydrogen y el relevo en Nvidia</title>
+      <description>Nebius tests the neocloud playbook with $40 billion in planned spending | SoftBank’s billion-dollar loss may have put a cap on AI’s natural gas ambitions | Introducing Gemini 4 Hydrogen | Nvidia’s Biggest Risk Is Product Pace: Windsor | Jensen Huang’s Nvidia (NVDA) Scandal Fuels Push for Tighter China Chip Curbs | UK Retailers Are Hiring for AI and Pulling Back on Other Roles</description>
+      <guid isPermaLink="false">2026-11-13</guid>
+      <pubDate>Fri, 13 Nov 2026 10:05:30 -0300</pubDate>
+      <enclosure url="https://diegocatalarc.github.io/radio-ia/episodes/episodio-2026-11-13.mp3" length="12151680" type="audio/mpeg" />
+      <itunes:duration>608</itunes:duration>
+    </item>
+    <item>
+      <title>Nvidia sin Huang, CoreWeave cobra por adelantado y los centros de datos que quizá no existan</title>
+      <description>Huang, Face of the AI Boom, Ousted by Nvidia Board as CEO | Nvidia Market Value Sinks Below $4 Trillion After Huang Resigns | CoreWeave turns to customer prepayments, shorter contracts to fund AI growth | Nebius Shares Drop on Neocloud’s Disappointing Revenue Outlook | With $720M round, Britain’s Fractile gets a leg up in the race for AI chips | Why the data center you dread might never even be built</description>
+      <guid isPermaLink="false">2026-11-12</guid>
+      <pubDate>Thu, 12 Nov 2026 11:54:33 -0300</pubDate>
+      <enclosure url="https://diegocatalarc.github.io/radio-ia/episodes/episodio-2026-11-12.mp3" length="12769920" type="audio/mpeg" />
+      <itunes:duration>638</itunes:duration>
+    </item>
+    <item>
+      <title>La IA vuelve a la bolsa mientras crecen las dudas y la regulación</title>
+      <description>Anthropic IPO Demand Surges as AI Trade Roars Back | AI Has Driven a Quarter of UK Growth This Year, Analysis Shows | Kai-Fu Lee Questions Soaring AI Valuations | Utah-Based Startup Raises $500 Million for Modular AI Data Center | OpenAI, Anthropic face new oversight as New York’s AI safety law takes effect | Nvidia’s crisis has corporate governance experts reaching for the popcorn</description>
+      <guid isPermaLink="false">2026-11-11</guid>
+      <pubDate>Wed, 11 Nov 2026 09:42:13 -0300</pubDate>
+      <enclosure url="https://diegocatalarc.github.io/radio-ia/episodes/episodio-2026-11-11.mp3" length="11391840" type="audio/mpeg" />
+      <itunes:duration>570</itunes:duration>
+    </item>
+    <item>
+      <title>Récord de OpenAI, salida a bolsa de Anthropic y la fiebre eléctrica de la IA</title>
+      <description>OpenAI Third-Quarter Revenue Soars Nearly 50% to $10 Billion | All 7 Anthropic founders will each cash out about $250M in IPO | Why Nvidia and Jensen Huang Matter So Much to Markets | CoreWeave Boosts Forecast, Easing Slowdown Concerns | The backlash about data centers might really just be about electricity | Work at the Frontier: AI’s effect on freelance work</description>
+      <guid isPermaLink="false">2026-11-10</guid>
+      <pubDate>Tue, 10 Nov 2026 22:03:39 -0300</pubDate>
+      <enclosure url="https://diegocatalarc.github.io/radio-ia/episodes/episodio-2026-11-10.mp3" length="12076800" type="audio/mpeg" />
+      <itunes:duration>604</itunes:duration>
+    </item>
+  </channel>
+</rss>

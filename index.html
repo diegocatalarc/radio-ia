@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Radio IA</title>
+<link rel="alternate" type="application/rss+xml" title="Radio IA" href="feed.xml">
+<style>
+  :root { --bg:#fafaf8; --fg:#1c1c1a; --muted:#6b6b66; --card:#fff; --line:#e4e4df; --accent:#2a5bd7; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#161615; --fg:#ececE8; --muted:#9a9a93; --card:#1f1f1d; --line:#323230; --accent:#7ea2ff; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg);
+         font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif; }
+  main { max-width:680px; margin:0 auto; padding:32px 16px 64px; }
+  h1 { margin:0 0 4px; font-size:28px; }
+  .sub { color:var(--muted); margin:0 0 24px; }
+  .sub a { color:var(--accent); }
+  .ep { background:var(--card); border:1px solid var(--line); border-radius:12px;
+        padding:16px; margin-bottom:12px; }
+  .day { color:var(--muted); font-size:14px; }
+  .day::first-letter { text-transform:uppercase; }
+  .ep h2 { margin:2px 0 6px; font-size:18px; }
+  .desc { color:var(--muted); font-size:14px; margin:0 0 10px; }
+  audio { width:100%; }
+  .empty { color:var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Radio IA</h1>
+  <p class="sub">Un episodio por día. <a href="feed.xml">Feed para tu app de podcasts</a></p>
+  <div id="list" class="empty">Cargando…</div>
+</main>
+<script>
+(async () => {
+  const list = document.getElementById("list");
+  try {
+    const res = await fetch("episodes.json", { cache: "no-cache" });
+    if (!res.ok) throw new Error(res.status);
+    const eps = (await res.json()).sort((a, b) => b.day.localeCompare(a.day));
+    if (!eps.length) { list.textContent = "Aún no hay episodios."; return; }
+    list.className = "";
+    list.replaceChildren(...eps.map(e => {
+      const card = document.createElement("article");
+      card.className = "ep";
+      const day = document.createElement("div");
+      day.className = "day";
+      const [y, m, d] = e.day.split("-").map(Number);
+      const mins = Math.max(1, Math.round(e.duration_s / 60));
+      day.textContent = new Date(y, m - 1, d).toLocaleDateString("es", {
+        weekday: "long", day: "numeric", month: "long", year: "numeric" }) + " · " + mins + " min";
+      const h = document.createElement("h2");
+      h.textContent = e.title;
+      const p = document.createElement("p");
+      p.className = "desc";
+      p.textContent = e.description;
+      const a = document.createElement("audio");
+      a.controls = true; a.preload = "none"; a.src = e.mp3_path;
+      card.append(day, h, p, a);
+      return card;
+    }));
+    // Al darle play a uno, pausa los demás.
+    list.addEventListener("play", ev => {
+      list.querySelectorAll("audio").forEach(x => { if (x !== ev.target) x.pause(); });
+    }, true);
+  } catch (err) {
+    list.textContent = "No se pudo cargar la lista de episodios.";
+  }
+})();
+</script>
+</body>
+</html>
