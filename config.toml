@@ -30,10 +30,14 @@ tts_voice = ""
 feeds = [
     "https://techcrunch.com/category/artificial-intelligence/feed/",
     "https://www.technologyreview.com/topic/artificial-intelligence/feed",
-    "https://venturebeat.com/category/ai/feed/",
+    "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml",
+    "https://www.wired.com/feed/tag/ai/latest/rss",
+    "https://www.cnbc.com/id/19854910/device/rss/rss.html",
+    "https://www.theguardian.com/technology/artificialintelligenceai/rss",
+    "https://www.fastcompany.com/technology/rss",
+    "https://www.xataka.com/tag/inteligencia-artificial/rss2.xml",
     "https://feeds.bloomberg.com/technology/news.rss",
     "https://openai.com/news/rss.xml",
-    "https://www.anthropic.com/rss.xml",
     "https://deepmind.google/blog/rss.xml",
     "https://www.economist.com/science-and-technology/rss.xml",
 ]
