@@ -4,70 +4,228 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
+<meta name="color-scheme" content="light dark">
 <title>Radio IA</title>
 <link rel="alternate" type="application/rss+xml" title="Radio IA" href="feed.xml">
 <style>
-  :root { --bg:#fafaf8; --fg:#1c1c1a; --muted:#6b6b66; --card:#fff; --line:#e4e4df; --accent:#2a5bd7; }
+  :root {
+    --bg: #fbfaf7; --fg: #1d1c1a; --muted: #85827b; --line: #e7e4dc; --accent: #1d1c1a;
+    --serif: ui-serif, "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
   @media (prefers-color-scheme: dark) {
-    :root { --bg:#161615; --fg:#ececE8; --muted:#9a9a93; --card:#1f1f1d; --line:#323230; --accent:#7ea2ff; }
+    :root { --bg: #141413; --fg: #ebe9e3; --muted: #8e8b83; --line: #2a2926; --accent: #ebe9e3; }
   }
   * { box-sizing: border-box; }
-  body { margin:0; background:var(--bg); color:var(--fg);
-         font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif; }
-  main { max-width:680px; margin:0 auto; padding:32px 16px 64px; }
-  h1 { margin:0 0 4px; font-size:28px; }
-  .sub { color:var(--muted); margin:0 0 24px; }
-  .sub a { color:var(--accent); }
-  .ep { background:var(--card); border:1px solid var(--line); border-radius:12px;
-        padding:16px; margin-bottom:12px; }
-  .day { color:var(--muted); font-size:14px; }
-  .day::first-letter { text-transform:uppercase; }
-  .ep h2 { margin:2px 0 6px; font-size:18px; }
-  .desc { color:var(--muted); font-size:14px; margin:0 0 10px; }
-  audio { width:100%; }
-  .empty { color:var(--muted); }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.6 var(--sans); }
+  main { max-width: 620px; margin: 0 auto; padding: 72px 24px 96px; }
+
+  header { margin-bottom: 72px; }
+  .mark { font: 400 15px/1 var(--sans); letter-spacing: .22em; text-transform: uppercase; margin: 0; }
+  .tag { font: italic 400 20px/1.4 var(--serif); color: var(--muted); margin: 14px 0 0; }
+  .rss { display: inline-block; margin-top: 18px; font-size: 13px; color: var(--muted);
+         text-decoration: none; border-bottom: 1px solid var(--line); padding-bottom: 1px; }
+  .rss:hover { color: var(--fg); border-color: var(--fg); }
+
+  .month { font-size: 12px; letter-spacing: .18em; text-transform: uppercase; color: var(--muted);
+           margin: 64px 0 8px; }
+  .ep { padding: 32px 0; border-top: 1px solid var(--line); }
+  .when { font-size: 13px; color: var(--muted); letter-spacing: .02em; }
+  .ep h2 { font: 400 24px/1.3 var(--serif); letter-spacing: -.01em; margin: 6px 0 20px; text-wrap: balance; }
+  .ep.latest h2 { font-size: 32px; line-height: 1.2; }
+
+  .player { display: flex; align-items: center; gap: 16px; }
+  .play { flex: none; width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--fg);
+          background: none; color: var(--fg); cursor: pointer; display: grid; place-items: center;
+          transition: background .15s, color .15s; }
+  .play:hover, .ep.active .play { background: var(--fg); color: var(--bg); }
+  .play:focus-visible, input[type=range]:focus-visible, summary:focus-visible
+    { outline: 2px solid var(--accent); outline-offset: 3px; }
+  .play svg { width: 14px; height: 14px; fill: currentColor; }
+  .play .i-pause { display: none; }
+  .ep.playing .i-play { display: none; }
+  .ep.playing .i-pause { display: block; }
+  .time { flex: none; font: 13px/1 var(--sans); color: var(--muted); font-variant-numeric: tabular-nums;
+          min-width: 38px; text-align: right; }
+
+  input[type=range] { flex: 1; min-width: 0; height: 20px; margin: 0; background: none;
+                      -webkit-appearance: none; appearance: none; cursor: pointer; }
+  input[type=range]::-webkit-slider-runnable-track {
+    height: 2px; background: linear-gradient(to right, var(--fg) var(--p, 0%), var(--line) var(--p, 0%)); }
+  input[type=range]::-moz-range-track { height: 2px; background: var(--line); }
+  input[type=range]::-moz-range-progress { height: 2px; background: var(--fg); }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 0; height: 0; }
+  input[type=range]::-moz-range-thumb { width: 0; height: 0; border: 0; }
+  .ep.active input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 10px; height: 10px; border-radius: 50%; background: var(--fg);
+    margin-top: -4px; }
+  .ep.active input[type=range]::-moz-range-thumb {
+    width: 10px; height: 10px; border-radius: 50%; background: var(--fg); border: 0; }
+
+  details { margin-top: 18px; }
+  summary { font-size: 13px; color: var(--muted); cursor: pointer; list-style: none; width: fit-content; }
+  summary::-webkit-details-marker { display: none; }
+  summary::after { content: " +"; }
+  details[open] summary::after { content: " –"; }
+  summary:hover { color: var(--fg); }
+  details ul { margin: 12px 0 0; padding: 0; list-style: none; }
+  details li { font-size: 14px; line-height: 1.5; color: var(--muted); padding: 5px 0; }
+
+  .empty { color: var(--muted); font: italic 18px/1.5 var(--serif); }
+  @media (max-width: 480px) {
+    main { padding: 48px 20px 72px; }
+    header { margin-bottom: 48px; }
+    .ep.latest h2 { font-size: 27px; }
+    .ep h2 { font-size: 21px; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 </head>
 <body>
 <main>
-  <h1>Radio IA</h1>
-  <p class="sub">Un episodio por día. <a href="feed.xml">Feed para tu app de podcasts</a></p>
-  <div id="list" class="empty">Cargando…</div>
+  <header>
+    <h1 class="mark">Radio IA</h1>
+    <p class="tag">La inteligencia artificial y su impacto en la economía, cada mañana.</p>
+    <a class="rss" href="feed.xml">Suscribirse por RSS</a>
+  </header>
+  <div id="list"><p class="empty">Cargando…</p></div>
 </main>
 <script>
 (async () => {
   const list = document.getElementById("list");
+  const audio = new Audio();
+  audio.preload = "none";
+  let current = null; // { row, btn, range, time, ep }
+
+  const fmt = s => {
+    s = Math.max(0, Math.round(s));
+    return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+  };
+  const el = (tag, cls, text) => {
+    const n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  };
+  const icon = (cls, d) => {
+    const ns = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(ns, "svg");
+    svg.setAttribute("viewBox", "0 0 14 14");
+    svg.setAttribute("class", cls);
+    svg.setAttribute("aria-hidden", "true");
+    const p = document.createElementNS(ns, "path");
+    p.setAttribute("d", d);
+    svg.append(p);
+    return svg;
+  };
+  const setProgress = (range, value, max) => {
+    range.max = max; range.value = value;
+    range.style.setProperty("--p", max ? (value / max * 100) + "%" : "0%");
+    range.setAttribute("aria-valuetext", fmt(value) + " de " + fmt(max));
+  };
+
+  function select(c) {
+    if (current && current !== c) {
+      current.row.classList.remove("active", "playing");
+      setProgress(current.range, 0, current.ep.duration_s);
+      current.time.textContent = fmt(current.ep.duration_s);
+      current.btn.setAttribute("aria-label", "Reproducir " + current.ep.title);
+    }
+    if (current !== c) {
+      current = c;
+      audio.src = c.ep.mp3_path;
+      c.row.classList.add("active");
+      if ("mediaSession" in navigator && window.MediaMetadata) {
+        navigator.mediaSession.metadata = new MediaMetadata({ title: c.ep.title, artist: "Radio IA" });
+      }
+    }
+  }
+  function toggle(c) {
+    select(c);
+    if (audio.paused) audio.play().catch(() => {}); else audio.pause();
+  }
+  audio.addEventListener("play", () => {
+    current.row.classList.add("playing");
+    current.btn.setAttribute("aria-label", "Pausar " + current.ep.title);
+  });
+  audio.addEventListener("pause", () => {
+    if (!current) return;
+    current.row.classList.remove("playing");
+    current.btn.setAttribute("aria-label", "Reproducir " + current.ep.title);
+  });
+  audio.addEventListener("timeupdate", () => {
+    if (!current) return;
+    const total = audio.duration || current.ep.duration_s;
+    setProgress(current.range, audio.currentTime, total);
+    current.time.textContent = "-" + fmt(total - audio.currentTime);
+  });
+  audio.addEventListener("ended", () => {
+    current.row.classList.remove("playing");
+    setProgress(current.range, 0, current.ep.duration_s);
+    current.time.textContent = fmt(current.ep.duration_s);
+  });
+
+  function build(ep, i) {
+    const row = el("article", "ep" + (i === 0 ? " latest" : ""));
+    const [y, m, d] = ep.day.split("-").map(Number);
+    const date = new Date(y, m - 1, d);
+    const when = el("div", "when", date.toLocaleDateString("es", { weekday: "long", day: "numeric", month: "long" }));
+    const h = el("h2", null, ep.title);
+
+    const btn = el("button", "play");
+    btn.type = "button";
+    btn.setAttribute("aria-label", "Reproducir " + ep.title);
+    btn.append(icon("i-play", "M3 1.5v11l9.5-5.5z"), icon("i-pause", "M2.5 1.5h3v11h-3zM8.5 1.5h3v11h-3z"));
+    const range = el("input");
+    range.type = "range"; range.min = 0; range.step = 1; range.value = 0;
+    range.setAttribute("aria-label", "Posición de " + ep.title);
+    setProgress(range, 0, ep.duration_s);
+    const time = el("span", "time", fmt(ep.duration_s));
+    const c = { row, btn, range, time, ep };
+    btn.addEventListener("click", () => toggle(c));
+    range.addEventListener("input", () => {
+      if (current !== c) { select(c); }
+      if (audio.readyState === 0) audio.load();
+      audio.currentTime = Number(range.value);
+      setProgress(range, range.value, range.max);
+    });
+    const player = el("div", "player");
+    player.append(btn, range, time);
+
+    row.append(when, h, player);
+
+    const stories = (ep.description || "").split(" | ").map(s => s.trim()).filter(Boolean);
+    if (stories.length) {
+      const det = el("details");
+      det.append(el("summary", null, stories.length + (stories.length === 1 ? " historia" : " historias")));
+      const ul = el("ul");
+      stories.forEach(s => ul.append(el("li", null, s)));
+      det.append(ul);
+      row.append(det);
+    }
+    return row;
+  }
+
   try {
     const res = await fetch("episodes.json", { cache: "no-cache" });
     if (!res.ok) throw new Error(res.status);
     const eps = (await res.json()).sort((a, b) => b.day.localeCompare(a.day));
-    if (!eps.length) { list.textContent = "Aún no hay episodios."; return; }
-    list.className = "";
-    list.replaceChildren(...eps.map(e => {
-      const card = document.createElement("article");
-      card.className = "ep";
-      const day = document.createElement("div");
-      day.className = "day";
-      const [y, m, d] = e.day.split("-").map(Number);
-      const mins = Math.max(1, Math.round(e.duration_s / 60));
-      day.textContent = new Date(y, m - 1, d).toLocaleDateString("es", {
-        weekday: "long", day: "numeric", month: "long", year: "numeric" }) + " · " + mins + " min";
-      const h = document.createElement("h2");
-      h.textContent = e.title;
-      const p = document.createElement("p");
-      p.className = "desc";
-      p.textContent = e.description;
-      const a = document.createElement("audio");
-      a.controls = true; a.preload = "none"; a.src = e.mp3_path;
-      card.append(day, h, p, a);
-      return card;
-    }));
-    // Al darle play a uno, pausa los demás.
-    list.addEventListener("play", ev => {
-      list.querySelectorAll("audio").forEach(x => { if (x !== ev.target) x.pause(); });
-    }, true);
+    if (!eps.length) { list.firstChild.textContent = "Aún no hay episodios."; return; }
+    const frag = document.createDocumentFragment();
+    let month = "";
+    eps.forEach((ep, i) => {
+      const [y, m] = ep.day.split("-").map(Number);
+      const label = new Date(y, m - 1, 1).toLocaleDateString("es", { month: "long", year: "numeric" });
+      if (label !== month) {
+        month = label;
+        if (i > 0) frag.append(el("div", "month", label));
+      }
+      frag.append(build(ep, i));
+    });
+    list.replaceChildren(frag);
   } catch (err) {
-    list.textContent = "No se pudo cargar la lista de episodios.";
+    list.firstChild.textContent = "No se pudo cargar la lista de episodios.";
   }
 })();
 </script>
