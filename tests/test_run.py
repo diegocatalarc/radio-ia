@@ -44,9 +44,11 @@ class FakeClaude:
         self.n_used = n_used
         self.pick = lambda ids: ids[:2] + ids[-1:]
         self.calls = []
+        self.models = []
 
     def complete(self, prompt, *, model, max_tokens):
         self.calls.append(prompt)
+        self.models.append(model)
         ids = [f"{i}" for i in range(0, 0)]
         import re
         ids = re.findall(r"\[id: ([^\]]+)\]", prompt)
@@ -101,6 +103,24 @@ def test_publishes_episode_and_updates_feed(tmp_path):
     assert feed.count("<item>") == 1 and "episodio-2026-11-10.mp3" in feed
     st = json.loads(d.state_path.read_text())
     assert len(st["used"]) == 4 and set(st["used"].values()) == {"2026-11-10"}
+
+
+def test_select_model_picks_stories_and_model_writes_script(tmp_path):
+    d = deps(tmp_path, n=8)  # más historias que max_stories: hay llamada de selección
+    c = cfg()
+    c.max_stories = 3
+    c.model, c.select_model = "grande", "barato"
+    assert run(c, NOW, d).exit_code == 0
+    assert d.claude.models == ["barato", "grande"]
+
+
+def test_empty_select_model_falls_back_to_model(tmp_path):
+    d = deps(tmp_path, n=8)
+    c = cfg()
+    c.max_stories = 3
+    c.model, c.select_model = "unico", ""
+    assert run(c, NOW, d).exit_code == 0
+    assert d.claude.models == ["unico", "unico"]
 
 
 def test_fewer_than_two_stories_publishes_nothing_exit_2(tmp_path):

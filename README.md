@@ -1,6 +1,8 @@
 # Radio IA
 
-Todo el flujo (LLM y voz) funciona con **una sola clave de API: `OPENROUTER_API_KEY`**.
+El guion lo escribe DeepSeek (clave `DEEPSEEK_API_KEY`) y la voz sale de OpenRouter (clave
+`OPENROUTER_API_KEY`). Si prefieres **una sola clave**, pon `llm_provider = "openrouter"` (ver
+"Cambiar de proveedor").
 
 Podcast privado y diario, en español, sobre inteligencia artificial y su impacto económico.
 Cada madrugada un flujo de GitHub Actions lee fuentes RSS, elige las historias nuevas, le pide a
@@ -47,8 +49,9 @@ del flujo puede ser sobrescrito por el push forzado.
 1. **Crea un repositorio público** en GitHub (por ejemplo `radio-ia`) y sube este código a `main`.
 2. **Edita `config.toml`**: cambia `site_url` por `https://<tu-usuario>.github.io/<nombre-del-repo>`
    (sin barra final) y haz commit.
-3. **Añade el secreto** `OPENROUTER_API_KEY` (la única clave necesaria; créala en
-   https://openrouter.ai/keys). Con la CLI de GitHub:
+3. **Añade los secretos** `DEEPSEEK_API_KEY` (guion; https://platform.deepseek.com/api_keys) y
+   `OPENROUTER_API_KEY` (voz; https://openrouter.ai/keys). Con la CLI de GitHub:
+   `gh secret set DEEPSEEK_API_KEY -R diegocatalarc/radio-ia` y
    `gh secret set OPENROUTER_API_KEY -R diegocatalarc/radio-ia`
    (o en *Settings > Secrets and variables > Actions > New repository secret*). Solo si cambias de
    proveedor (ver "Cambiar de proveedor") hacen falta `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` o
@@ -83,8 +86,9 @@ Campos de `config.toml`:
 
 | Campo | Valor por defecto | Significado |
 | - | - | - |
-| `llm_provider` | `"openrouter"` | `"openrouter"` o `"anthropic"` |
-| `model` | `anthropic/claude-sonnet-5.5` | id del modelo **del proveedor elegido** |
+| `llm_provider` | `"deepseek"` | `"deepseek"`, `"openrouter"` o `"anthropic"` |
+| `model` | `deepseek-v4-pro` | modelo que **escribe el guion** (la tarea exigente); id del proveedor elegido |
+| `select_model` | `deepseek-flash` | modelo barato que **elige las historias** leyendo titulares; vacío = usa `model` |
 | `tts_provider` | `"openrouter"` | `"openrouter"`, `"openai"` o `"elevenlabs"` |
 | `tts_model` | `""` | modelo de voz de OpenRouter (vacío = `microsoft/mai-voice-2.1-flash`) |
 | `tts_voice` | `""` | voz; vacío = `es-MX-Valeria:MAI-Voice-2.1-Flash` con el modelo por defecto |
@@ -93,6 +97,8 @@ Un `llm_provider` o `tts_provider` desconocido se rechaza al arrancar con un men
 
 ### Cambiar de proveedor
 
+- **Todo con OpenRouter (una sola clave)**: `llm_provider = "openrouter"`, `model = "anthropic/claude-sonnet-5.5"`
+  (u otro id de OpenRouter, p. ej. `deepseek/deepseek-v4-pro`) y `select_model` igual o vacío.
 - **LLM directo con Anthropic**: `llm_provider = "anthropic"`, `model = "claude-sonnet-5-5"`, instala el
   extra (`pip install '.[anthropic]'`; en el flujo cambia `pip install .` por `pip install '.[anthropic]'`)
   y define el secreto `ANTHROPIC_API_KEY`.

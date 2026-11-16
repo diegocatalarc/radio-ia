@@ -1,6 +1,7 @@
 """Interfaz mínima de LLM: ``complete(prompt, model=, max_tokens=) -> LlmReply``.
 
-Adaptadores: OpenRouter (por defecto, vía httpx) y Anthropic (SDK, import perezoso).
+Adaptadores: OpenRouter (por defecto) y DeepSeek directo (ambos vía httpx, formato OpenAI)
+y Anthropic (SDK, import perezoso).
 """
 from __future__ import annotations
 
@@ -15,6 +16,7 @@ from radio.http_retry import post_with_retry
 
 TIMEOUT = 180.0
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+DEEPSEEK_URL = "https://api.deepseek.com/chat/completions"
 
 
 class LlmError(Exception):
@@ -31,6 +33,8 @@ class Llm(Protocol):
     def complete(self, prompt: str, *, model: str, max_tokens: int) -> LlmReply: ...
 
 
+# "error" es de OpenRouter; las otras dos, de DeepSeek (interrupción del servicio).
+_INCOMPLETE = {"error", "insufficient_system_resource", "aborted"}
 _FINISH = {"stop": "end", "length": "max_tokens", "content_filter": "refusal"}
 
 
@@ -48,7 +52,12 @@ def _text_of(content) -> str:
     return ""
 
 
-class OpenRouterLlm:
+class _ChatCompletionsLlm:
+    """Cliente del formato /chat/completions compatible con OpenAI."""
+    name = ""
+    url = ""
+    extra_body: dict = {}
+
     def __init__(self, api_key: str, client: httpx.Client | None = None,
                  sleep: Callable[[float], None] = time.sleep):
         self.api_key = api_key
@@ -61,12 +70,12 @@ class OpenRouterLlm:
     def complete(self, prompt: str, *, model: str, max_tokens: int) -> LlmReply:
         try:
             resp = post_with_retry(
-                self.client, OPENROUTER_URL, sleep=self.sleep,
+                self.client, self.url, sleep=self.sleep,
                 headers={"Authorization": f"Bearer {self.api_key}"},
                 json={"model": model, "messages": [{"role": "user", "content": prompt}],
-                      "max_tokens": max_tokens})
+                      "max_tokens": max_tokens, **self.extra_body})
         except httpx.HTTPError as exc:
-            raise LlmError(f"OpenRouter: fallo de red ({type(exc).__name__})") from None
+            raise LlmError(f"{self.name}: fallo de red ({type(exc).__name__})") from None
         try:
             data = resp.json()
         except ValueError:
@@ -78,12 +87,12 @@ class OpenRouterLlm:
                 detail = str(err.get("message") or "")
             elif err:
                 detail = str(err)
-            msg = f"OpenRouter devolvió un error (HTTP {resp.status_code})"
+            msg = f"{self.name} devolvió un error (HTTP {resp.status_code})"
             if detail:
                 msg += f": {detail[:300]}"
             raise LlmError(self._clean(msg))
         if not isinstance(data, dict):
-            raise LlmError("OpenRouter devolvió una respuesta que no es JSON")
+            raise LlmError(f"{self.name} devolvió una respuesta que no es JSON")
         choices = data.get("choices")
         choice = choices[0] if isinstance(choices, list) and choices else {}
         if not isinstance(choice, dict):
@@ -91,10 +100,25 @@ class OpenRouterLlm:
         message = choice.get("message")
         content = message.get("content") if isinstance(message, dict) else None
         finish = choice.get("finish_reason")
-        if finish == "error":
+        if finish in _INCOMPLETE:
             # Un texto parcial nunca debe llegar al control de cifras ni publicarse.
-            raise LlmError("OpenRouter terminó con finish_reason=error (respuesta incompleta)")
+            raise LlmError(f"{self.name} terminó con finish_reason={finish} (respuesta incompleta)")
         return LlmReply(text=_text_of(content), stop=_FINISH.get(finish, "other"))
+
+
+class OpenRouterLlm(_ChatCompletionsLlm):
+    name = "OpenRouter"
+    url = OPENROUTER_URL
+
+
+class DeepSeekLlm(_ChatCompletionsLlm):
+    """API directa de DeepSeek. Modelos: ``deepseek-flash`` (barato) y ``deepseek-v4-pro``
+    (el más capaz). El modo "thinking" viene activado por defecto; se desactiva porque su
+    razonamiento consume parte de ``max_tokens`` y se cobra como salida, y aquí el control
+    de cifras ya vigila el guion."""
+    name = "DeepSeek"
+    url = DEEPSEEK_URL
+    extra_body = {"thinking": {"type": "disabled"}}
 
 
 _ANTHROPIC_STOP = {"end_turn": "end", "stop_sequence": "end", "max_tokens": "max_tokens",
@@ -135,8 +159,13 @@ def llm_from_config(config) -> Llm:
         if not key:
             raise ValueError("Falta la variable de entorno OPENROUTER_API_KEY para el LLM")
         return OpenRouterLlm(key)
+    if name == "deepseek":
+        key = os.environ.get("DEEPSEEK_API_KEY", "")
+        if not key:
+            raise ValueError("Falta la variable de entorno DEEPSEEK_API_KEY para el LLM")
+        return DeepSeekLlm(key)
     if name == "anthropic":
         if not os.environ.get("ANTHROPIC_API_KEY"):
             raise ValueError("Falta la variable de entorno ANTHROPIC_API_KEY para el LLM")
         return AnthropicLlm()
-    raise ValueError(f"llm_provider desconocido: {name!r} (use 'openrouter' o 'anthropic')")
+    raise ValueError(f"llm_provider desconocido: {name!r} (use 'openrouter', 'deepseek' o 'anthropic')")

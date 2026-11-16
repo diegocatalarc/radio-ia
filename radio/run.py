@@ -153,7 +153,7 @@ def _run(config: Config, now: datetime, deps: Deps) -> RunResult:
 
     pool = balance_pool(state.filter_new(fetched), config.pool_size)
     # Etapa 2: Claude elige (llamada barata) y solo entonces se descargan los cuerpos.
-    chosen = select_stories(pool, day, deps.claude, config.model,
+    chosen = select_stories(pool, day, deps.claude, config.select_model or config.model,
                             max_stories=config.max_stories)
     if len(chosen) < MIN_STORIES:
         msg = f"Solo {len(chosen)} historias nuevas; no se publica nada{suffix}"

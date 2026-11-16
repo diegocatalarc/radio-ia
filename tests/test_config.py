@@ -43,6 +43,6 @@ def test_unknown_providers_rejected():
         validate_config(Config(site_url=ok, llm_provider="foo"))
     with pytest.raises(ValueError, match="tts_provider.*bar"):
         validate_config(Config(site_url=ok, tts_provider="bar"))
-    for llm in ("openrouter", "anthropic"):
+    for llm in ("openrouter", "deepseek", "anthropic"):
         for tts in ("openrouter", "openai", "elevenlabs"):
             validate_config(Config(site_url=ok, llm_provider=llm, tts_provider=tts))

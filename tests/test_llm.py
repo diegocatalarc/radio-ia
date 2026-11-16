@@ -3,7 +3,7 @@ import json
 import httpx
 import pytest
 
-from radio.llm import AnthropicLlm, LlmError, LlmReply, OpenRouterLlm, llm_from_config
+from radio.llm import AnthropicLlm, DeepSeekLlm, LlmError, LlmReply, OpenRouterLlm, llm_from_config
 from radio.config import Config
 
 KEY = "sk-or-SECRET123"
@@ -173,3 +173,54 @@ def test_retries_transport_error_then_gives_up_without_leak():
     with pytest.raises(LlmError) as ei:
         llm.complete("p", model="m", max_tokens=1)
     assert len(seen) == 3 and KEY not in str(ei.value)
+
+
+def make_deepseek(handler):
+    seen = []
+
+    def wrapped(req):
+        seen.append(req)
+        return handler(req)
+    llm = DeepSeekLlm(KEY, client=httpx.Client(transport=httpx.MockTransport(wrapped)),
+                      sleep=lambda s: None)
+    return llm, seen
+
+
+def test_deepseek_request_shape_disables_thinking():
+    llm, seen = make_deepseek(ok())
+    assert llm.complete("Dime algo", model="deepseek-v4-pro", max_tokens=99) == LlmReply("Hola", "end")
+    req = seen[0]
+    assert str(req.url) == "https://api.deepseek.com/chat/completions"
+    assert req.headers["authorization"] == f"Bearer {KEY}"
+    assert json.loads(req.content) == {
+        "model": "deepseek-v4-pro", "messages": [{"role": "user", "content": "Dime algo"}],
+        "max_tokens": 99, "thinking": {"type": "disabled"}}
+
+
+def test_openrouter_request_does_not_send_thinking():
+    llm, seen = make(ok())
+    llm.complete("p", model="m", max_tokens=1)
+    assert "thinking" not in json.loads(seen[0].content)
+
+
+@pytest.mark.parametrize("finish", ["insufficient_system_resource", "aborted"])
+def test_deepseek_interrupted_generation_raises(finish):
+    llm, _ = make_deepseek(ok(content="texto parcial", finish=finish))
+    with pytest.raises(LlmError, match=finish) as ei:
+        llm.complete("p", model="m", max_tokens=1)
+    assert "DeepSeek" in str(ei.value) and "parcial" not in str(ei.value)
+
+
+def test_deepseek_error_names_provider_and_redacts_key():
+    llm, _ = make_deepseek(lambda req: httpx.Response(401, json={"error": {"message": f"bad {KEY}"}}))
+    with pytest.raises(LlmError) as ei:
+        llm.complete("p", model="m", max_tokens=1)
+    assert "DeepSeek" in str(ei.value) and "401" in str(ei.value) and KEY not in str(ei.value)
+
+
+def test_llm_from_config_deepseek_requires_its_own_key(monkeypatch):
+    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+    with pytest.raises(ValueError, match="DEEPSEEK_API_KEY"):
+        llm_from_config(Config(llm_provider="deepseek"))
+    monkeypatch.setenv("DEEPSEEK_API_KEY", KEY)
+    assert isinstance(llm_from_config(Config(llm_provider="deepseek")), DeepSeekLlm)

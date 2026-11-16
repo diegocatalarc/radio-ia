@@ -10,6 +10,7 @@ class Config:
     feeds: list[str] = field(default_factory=list)
     llm_provider: str = "openrouter"
     model: str = "anthropic/claude-sonnet-5.5"
+    select_model: str = ""  # modelo barato para elegir historias; vacío = el mismo que `model`
     max_stories: int = 6
     pool_size: int = 30
     site_url: str = ""
@@ -25,7 +26,7 @@ def load_config(path: Path = Path("config.toml")) -> Config:
     return Config(**{k: v for k, v in data.items() if k in known})
 
 
-LLM_PROVIDERS = ("openrouter", "anthropic")
+LLM_PROVIDERS = ("openrouter", "deepseek", "anthropic")
 TTS_PROVIDERS = ("openrouter", "openai", "elevenlabs")
 
 
@@ -34,7 +35,7 @@ def validate_config(config: Config) -> None:
     o nombra un proveedor desconocido."""
     if config.llm_provider not in LLM_PROVIDERS:
         raise ValueError(f"llm_provider desconocido: {config.llm_provider!r} "
-                         f"(use {' o '.join(repr(p) for p in LLM_PROVIDERS)})")
+                         f"(use {', '.join(repr(p) for p in LLM_PROVIDERS)})")
     if config.tts_provider not in TTS_PROVIDERS:
         raise ValueError(f"tts_provider desconocido: {config.tts_provider!r} "
                          f"(use {', '.join(repr(p) for p in TTS_PROVIDERS)})")
