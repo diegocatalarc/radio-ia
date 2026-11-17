@@ -29,6 +29,26 @@ _HEADER_RE = re.compile(
 _MD_RE = re.compile(r"^\s*(?:#+|[-*•]|\d+[.)])\s+")
 
 
+# Nombre del medio por dominio: el título del feed a veces es una sección ("Tech", "AI | The Verge").
+OUTLET_NAMES = {
+    "bloomberg.com": "Bloomberg", "economist.com": "The Economist",
+    "theguardian.com": "The Guardian", "technologyreview.com": "MIT Technology Review",
+    "cnbc.com": "CNBC", "wired.com": "Wired", "theverge.com": "The Verge",
+    "techcrunch.com": "TechCrunch", "fastcompany.com": "Fast Company",
+    "reuters.com": "Reuters", "apnews.com": "AP", "ft.com": "Financial Times",
+    "wsj.com": "The Wall Street Journal", "nytimes.com": "The New York Times",
+    "elpais.com": "El País", "bbc.com": "BBC", "bbc.co.uk": "BBC",
+}
+
+
+def outlet(s: Story) -> str:
+    host = (urlparse(s.url).hostname or "").lower()
+    for domain, name in OUTLET_NAMES.items():
+        if host == domain or host.endswith("." + domain):
+            return name
+    return s.source
+
+
 class ArticleError(Exception):
     """No se pudo escribir una entrada válida (sin fuentes confiables, cifras sin respaldo...)."""
 
@@ -45,7 +65,7 @@ class Article:
         return {
             "day": day.isoformat(), "title": self.title, "lede": self.lede,
             "body": self.paragraphs,
-            "sources": [{"title": _clean(s.title), "source": s.source, "url": s.url}
+            "sources": [{"title": _clean(s.title), "source": outlet(s), "url": s.url}
                         for s in self.sources],
         }
 
@@ -70,7 +90,7 @@ def trusted_candidates(stories: list[Story], domains: list[str]) -> list[Story]:
 
 def _render(s: Story) -> str:
     return (f'<fuente id="{s.id}">\n[id: {s.id}] {_clean(s.title)}\n'
-            f"Medio: {s.source} ({s.url})\nResumen: {_clean(s.summary)}\n"
+            f"Medio: {outlet(s)} ({s.url})\nResumen: {_clean(s.summary)}\n"
             f"Texto completo: {_clean(s.body)}\n</fuente>")
 
 
