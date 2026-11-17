@@ -355,6 +355,7 @@ def test_publishes_article_from_trusted_sources(tmp_path):
     assert d.claude.models[-1] == "art"
     eps = json.loads((d.site_dir / "episodes.json").read_text())
     assert eps[0]["article_path"] == "articles/entrada-2026-11-10.json"
+    assert eps[0]["article_title"] == "Entrada del dia"
     art = json.loads((d.site_dir / eps[0]["article_path"]).read_text())
     assert art["title"] == "Entrada del dia" and art["body"] == ["Primer parrafo.", "Segundo parrafo."]
     assert art["sources"][0]["url"].startswith("http://x/")

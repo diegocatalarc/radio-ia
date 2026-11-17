@@ -86,7 +86,7 @@ def _episode_to_json(e: Episode) -> dict:
     return {"day": e.day.isoformat(), "title": e.title, "description": e.description,
             "mp3_path": e.mp3_path, "duration_s": e.duration_s, "size_bytes": e.size_bytes,
             "published": e.published.isoformat() if e.published else None,
-            "article_path": e.article_path}
+            "article_path": e.article_path, "article_title": e.article_title}
 
 
 def _episode_from_json(d: dict) -> Episode:
@@ -94,7 +94,7 @@ def _episode_from_json(d: dict) -> Episode:
                    description=d["description"], mp3_path=d["mp3_path"],
                    duration_s=int(d["duration_s"]), size_bytes=int(d["size_bytes"]),
                    published=datetime.fromisoformat(d["published"]) if d.get("published") else None,
-                   article_path=d.get("article_path"))
+                   article_path=d.get("article_path"), article_title=d.get("article_title"))
 
 
 def _load_episodes(path: Path) -> list[Episode]:
@@ -184,7 +184,8 @@ def _run(config: Config, now: datetime, deps: Deps) -> RunResult:
         day=day, title=result.title,
         description=" | ".join(s.title for s in result.used),
         mp3_path=f"episodes/{name}", duration_s=estimate_mp3_duration_s(audio),
-        size_bytes=len(audio), published=local_now, article_path=article_path)
+        size_bytes=len(audio), published=local_now, article_path=article_path,
+        article_title=article.title if article else None)
     episodes_path = deps.site_dir / "episodes.json"
     episodes = upsert_episode(_load_episodes(episodes_path), episode)
     episodes_json = json.dumps([_episode_to_json(e) for e in episodes],
