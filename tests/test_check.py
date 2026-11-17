@@ -95,3 +95,19 @@ def test_correct_cli_adds_correction(tmp_path):
 def test_correct_cli_rejects_empty(tmp_path):
     assert correct.main(["   ", "--state", str(tmp_path / "s.json")]) == 1
     assert not (tmp_path / "s.json").exists()
+
+
+def test_prune_removes_unreferenced_articles(tmp_path):
+    import json as _json
+    from radio.check import prune_unreferenced_mp3
+    site = tmp_path
+    (site / "episodes").mkdir()
+    (site / "articles").mkdir()
+    (site / "episodes" / "a.mp3").write_bytes(b"x")
+    (site / "articles" / "entrada-1.json").write_text("{}")
+    (site / "articles" / "entrada-2.json").write_text("{}")
+    (site / "episodes.json").write_text(_json.dumps(
+        [{"day": "2026-11-10", "mp3_path": "episodes/a.mp3",
+          "article_path": "articles/entrada-1.json"}]))
+    assert prune_unreferenced_mp3(site) == ["entrada-2.json"]
+    assert (site / "articles" / "entrada-1.json").exists()
