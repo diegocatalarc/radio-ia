@@ -30,6 +30,7 @@ class Episode:
     size_bytes: int
     published: datetime | None = None  # tz-aware generation time; used verbatim for pubDate
     article_path: str | None = None  # entrada escrita del día (articles/entrada-AAAA-MM-DD.json)
+    article_title: str | None = None  # titular de la entrada (portada y archivo de la web)
 
     def __post_init__(self):
         if self.published is not None and self.published.utcoffset() is None:

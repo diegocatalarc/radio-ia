@@ -2,7 +2,7 @@ from datetime import date, datetime, timezone
 
 import pytest
 
-from radio.article import ArticleError, is_trusted, trusted_candidates, write_article
+from radio.article import ArticleError, is_trusted, outlet, trusted_candidates, write_article
 from radio.llm import LlmReply
 from radio.models import Story
 
@@ -63,7 +63,7 @@ def test_writes_article_only_from_trusted_sources():
     assert len(art.paragraphs) == 2
     data = art.to_json(DAY)
     assert data["day"] == "2026-11-17"
-    assert data["sources"] == [{"title": "Titular 0", "source": "Medio 0",
+    assert data["sources"] == [{"title": "Titular 0", "source": "Bloomberg",
                                 "url": "https://www.bloomberg.com/a"}]
 
 
@@ -93,3 +93,9 @@ def test_bad_format_retries_and_recovers():
     llm = FakeLlm("Aquí va la entrada sin cabeceras.", reply())
     art = write_article(stories, DAY, llm, model="m", domains=DOMAINS)
     assert art.main.id == "s0" and "PRINCIPAL" in llm.prompts[1]
+
+
+def test_outlet_name_from_domain_not_feed_section():
+    assert outlet(story(0, "https://www.cnbc.com/2026/x")) == "CNBC"
+    assert outlet(story(0, "https://www.theguardian.com/x")) == "The Guardian"
+    assert outlet(story(0, "https://unknown.example/x")) == "Medio 0"
