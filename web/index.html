@@ -5,8 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex">
 <meta name="color-scheme" content="light dark">
-<meta name="theme-color" content="#f8f6f1" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#121211" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f8f6f1">
+<script>
+  // Tema antes de pintar: preferencia guardada o la del sistema.
+  (() => {
+    let t = null;
+    try { t = localStorage.getItem("theme"); } catch (e) {}
+    if (t !== "light" && t !== "dark") t = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    document.documentElement.dataset.theme = t;
+  })();
+</script>
 <title>Radio IA</title>
 <link rel="alternate" type="application/rss+xml" title="Radio IA" href="feed.xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -20,10 +28,29 @@
     --sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
     --wide: 1120px; --text: 680px;
   }
+  :root[data-theme="light"] { color-scheme: light; }
   @media (prefers-color-scheme: dark) {
-    :root { --bg: #121211; --paper: #181816; --fg: #ece9e2; --soft: #c2beb5; --muted: #8b877f;
-            --line: #2b2a27; --rule: #ece9e2; --accent: #e0907c; }
+    :root:not([data-theme="light"]) { --bg: #121211; --paper: #181816; --fg: #ece9e2; --soft: #c2beb5;
+            --muted: #8b877f; --line: #2b2a27; --rule: #ece9e2; --accent: #e0907c; color-scheme: dark; }
   }
+  :root[data-theme="dark"] { --bg: #121211; --paper: #181816; --fg: #ece9e2; --soft: #c2beb5;
+            --muted: #8b877f; --line: #2b2a27; --rule: #ece9e2; --accent: #e0907c; color-scheme: dark; }
+
+  /* Cambio de tema: fundido suave de colores (o View Transitions si el navegador lo admite). */
+  html.theming, html.theming *, html.theming *::before, html.theming *::after {
+    transition: background-color .45s ease, color .45s ease, border-color .45s ease, fill .45s ease !important; }
+  ::view-transition-old(root), ::view-transition-new(root) { animation-duration: .45s; }
+  .theme { width: 28px; height: 28px; margin: -6px -6px -6px 10px; padding: 0; border: 0; background: none;
+           color: var(--muted); cursor: pointer; display: inline-grid; place-items: center; vertical-align: middle;
+           border-radius: 50%; transition: color .2s; }
+  .theme:hover { color: var(--fg); }
+  .theme svg { width: 15px; height: 15px; transition: transform .6s cubic-bezier(.2,.7,.2,1); }
+  :root[data-theme="dark"] .theme svg { transform: rotate(180deg); }
+  .topline .right { display: inline-flex; align-items: center; }
+  .topline { white-space: nowrap; }
+  .topline .short { display: none; }
+  @media (max-width: 560px) { .topline .full { display: none; } .topline .short { display: inline; } }
+  .compact .bar-head .right { display: inline-flex; align-items: center; gap: 4px; }
   * { box-sizing: border-box; }
   html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
   body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.6 var(--sans);
@@ -351,14 +378,58 @@
     if (playing) setSeek(audio.currentTime, audio.duration || playing.duration_s);
   });
 
+  // ── tema claro / oscuro ──────────────────────────────
+  const root = document.documentElement;
+  const metaTheme = document.querySelector('meta[name="theme-color"]');
+  const paintMeta = () => { metaTheme.content = root.dataset.theme === "dark" ? "#121211" : "#f8f6f1"; };
+  paintMeta();
+  function setTheme(t) {
+    const apply = () => {
+      root.dataset.theme = t; paintMeta();
+      try { localStorage.setItem("theme", t); } catch (e) {}
+      document.querySelectorAll(".theme").forEach(b => {
+        b.setAttribute("aria-label", t === "dark" ? "Cambiar a modo claro" : "Cambiar a modo oscuro");
+        b.setAttribute("aria-pressed", String(t === "dark"));
+      });
+    };
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return apply();
+    if (document.startViewTransition) return document.startViewTransition(apply);
+    root.classList.add("theming");
+    apply();
+    setTimeout(() => root.classList.remove("theming"), 500);
+  }
+  function themeButton() {
+    const b = el("button", "theme");
+    b.type = "button";
+    const dark = root.dataset.theme === "dark";
+    b.setAttribute("aria-label", dark ? "Cambiar a modo claro" : "Cambiar a modo oscuro");
+    b.setAttribute("aria-pressed", String(dark));
+    b.title = "Modo claro / oscuro";
+    // Círculo partido: la mitad rellena gira al cambiar de tema.
+    const ns = "http://www.w3.org/2000/svg";
+    const s = document.createElementNS(ns, "svg");
+    s.setAttribute("viewBox", "0 0 16 16"); s.setAttribute("aria-hidden", "true");
+    const c = document.createElementNS(ns, "circle");
+    c.setAttribute("cx", "8"); c.setAttribute("cy", "8"); c.setAttribute("r", "6.5");
+    c.setAttribute("fill", "none"); c.setAttribute("stroke", "currentColor"); c.setAttribute("stroke-width", "1.2");
+    const p = document.createElementNS(ns, "path");
+    p.setAttribute("d", "M8 1.5a6.5 6.5 0 0 1 0 13z"); p.setAttribute("fill", "currentColor");
+    s.append(c, p); b.append(s);
+    b.addEventListener("click", () => setTheme(root.dataset.theme === "dark" ? "light" : "dark"));
+    return b;
+  }
+
   // ── cabeceras ────────────────────────────────────────
   function masthead() {
     const h = el("header", "masthead wrap");
     const top = el("div", "topline");
-    const today = el("span", null, cap(new Date().toLocaleDateString("es", { weekday: "long", day: "numeric", month: "long", year: "numeric" })));
-    const right = el("span");
-    const rss = el("a", null, "Suscribirse al podcast"); rss.href = "feed.xml";
-    right.append(rss);
+    const today = el("span");
+    today.append(el("span", "full", cap(new Date().toLocaleDateString("es", { weekday: "long", day: "numeric", month: "long", year: "numeric" }))),
+                 el("span", "short", cap(new Date().toLocaleDateString("es", { weekday: "short", day: "numeric", month: "short" })).replace(/\./g, "")));
+    const right = el("span", "right");
+    const rss = el("a"); rss.href = "feed.xml";
+    rss.append(el("span", "full", "Suscribirse al podcast"), el("span", "short", "RSS"));
+    right.append(rss, themeButton());
     top.append(today, right);
     const brand = el("a", "brand", "Radio IA"); brand.href = "#";
     const motto = el("p", "motto", "La inteligencia artificial y su impacto en la economía, cada mañana");
@@ -370,7 +441,9 @@
     const row = el("div", "bar-head");
     const brand = el("a", "brand", "Radio IA"); brand.href = "#";
     const back = el("a", "back", "← Portada"); back.href = "#";
-    row.append(brand, back); h.append(row);
+    const right = el("span", "right");
+    right.append(back, themeButton());
+    row.append(brand, right); h.append(row);
     return h;
   }
   function foot() {
