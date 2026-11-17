@@ -72,12 +72,37 @@
   details ul { margin: 12px 0 0; padding: 0; list-style: none; }
   details li { font-size: 14px; line-height: 1.5; color: var(--muted); padding: 5px 0; }
 
+  .read { display: inline-block; margin-top: 18px; font-size: 13px; color: var(--fg);
+          text-decoration: none; border-bottom: 1px solid var(--line); padding-bottom: 1px; }
+  .read:hover { border-color: var(--fg); }
+  .read + details { margin-top: 10px; }
+  a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+  .entry { padding-top: 0; }
+  .back { font-size: 13px; color: var(--muted); text-decoration: none; }
+  .back:hover { color: var(--fg); }
+  .entry .when { margin-top: 40px; }
+  .entry h2 { font: 400 34px/1.18 var(--serif); letter-spacing: -.015em; margin: 8px 0 18px; text-wrap: balance; }
+  .lede { font: italic 400 20px/1.5 var(--serif); color: var(--muted); margin: 0 0 32px; text-wrap: pretty; }
+  .entry .player { padding: 0 0 32px; border-bottom: 1px solid var(--line); margin-bottom: 36px; }
+  .prose p { font: 400 19px/1.7 var(--serif); margin: 0 0 1.15em; text-wrap: pretty; hyphens: auto; }
+  .sources { margin-top: 48px; padding-top: 24px; border-top: 1px solid var(--line); }
+  .sources .month { margin: 0 0 8px; }
+  .sources ul { margin: 0; padding: 0; list-style: none; }
+  .sources li { font-size: 14px; line-height: 1.5; color: var(--muted); padding: 5px 0; }
+  .sources a { color: var(--fg); text-decoration: none; border-bottom: 1px solid var(--line); }
+  .sources a:hover { border-color: var(--fg); }
+  .note { font-size: 13px; color: var(--muted); margin-top: 24px; }
+
   .empty { color: var(--muted); font: italic 18px/1.5 var(--serif); }
   @media (max-width: 480px) {
     main { padding: 48px 20px 72px; }
     header { margin-bottom: 48px; }
     .ep.latest h2 { font-size: 27px; }
     .ep h2 { font-size: 21px; }
+    .entry h2 { font-size: 28px; }
+    .lede { font-size: 18px; }
+    .prose p { font-size: 18px; }
   }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
@@ -90,10 +115,13 @@
     <a class="rss" href="feed.xml">Suscribirse por RSS</a>
   </header>
   <div id="list"><p class="empty">Cargando…</p></div>
+  <div id="entry" hidden></div>
 </main>
 <script>
 (async () => {
   const list = document.getElementById("list");
+  const entry = document.getElementById("entry");
+  const byDay = new Map(); // day -> { row, btn, range, time, ep, player }
   const audio = new Audio();
   audio.preload = "none";
   let current = null; // { row, btn, range, time, ep }
@@ -182,7 +210,9 @@
     range.setAttribute("aria-label", "Posición de " + ep.title);
     setProgress(range, 0, ep.duration_s);
     const time = el("span", "time", fmt(ep.duration_s));
-    const c = { row, btn, range, time, ep };
+    const player = el("div", "player");
+    const c = { row, btn, range, time, ep, player };
+    byDay.set(ep.day, c);
     btn.addEventListener("click", () => toggle(c));
     range.addEventListener("input", () => {
       if (current !== c) { select(c); }
@@ -190,10 +220,14 @@
       audio.currentTime = Number(range.value);
       setProgress(range, range.value, range.max);
     });
-    const player = el("div", "player");
     player.append(btn, range, time);
 
     row.append(when, h, player);
+    if (ep.article_path) {
+      const a = el("a", "read", "Leer la entrada");
+      a.href = "#entrada/" + ep.day;
+      row.append(a);
+    }
 
     const stories = (ep.description || "").split(" | ").map(s => s.trim()).filter(Boolean);
     if (stories.length) {
@@ -206,6 +240,82 @@
     }
     return row;
   }
+
+  const longDate = day => {
+    const [y, m, d] = day.split("-").map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString("es", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  };
+  const articles = new Map();
+  let listScroll = 0;
+
+  // La vista de lectura toma prestado el reproductor del episodio (el mismo nodo): el audio
+  // sigue sonando al entrar o salir de la entrada.
+  function returnPlayer() {
+    for (const c of byDay.values()) {
+      if (c.player.parentNode !== c.row) c.row.insertBefore(c.player, c.row.querySelector(".read"));
+    }
+  }
+
+  async function showEntry(day) {
+    const c = byDay.get(day);
+    if (!c || !c.ep.article_path) { location.hash = ""; return; }
+    returnPlayer();
+    if (list.hidden === false) listScroll = scrollY;
+    list.hidden = true; entry.hidden = false;
+    entry.replaceChildren(el("p", "empty", "Cargando…"));
+    scrollTo(0, 0);
+    let art = articles.get(day);
+    try {
+      if (!art) {
+        const res = await fetch(c.ep.article_path, { cache: "no-cache" });
+        if (!res.ok) throw new Error(res.status);
+        art = await res.json();
+        articles.set(day, art);
+      }
+    } catch (err) {
+      entry.firstChild.textContent = "No se pudo cargar la entrada.";
+      return;
+    }
+    if (location.hash !== "#entrada/" + day) return;
+    const back = el("a", "back", "← Todos los episodios");
+    back.href = "#";
+    const box = el("article", "entry");
+    box.append(back, el("div", "when", longDate(day)), el("h2", null, art.title),
+               el("p", "lede", art.lede));
+    box.append(c.player);
+    const prose = el("div", "prose");
+    (art.body || []).forEach(p => prose.append(el("p", null, p)));
+    box.append(prose);
+    if ((art.sources || []).length) {
+      const src = el("div", "sources");
+      src.append(el("div", "month", "Fuentes"));
+      const ul = el("ul");
+      art.sources.forEach(s => {
+        const li = el("li");
+        const a = el("a", null, s.title);
+        a.href = s.url; a.rel = "noopener"; a.target = "_blank";
+        li.append(a, document.createTextNode(" — " + s.source));
+        ul.append(li);
+      });
+      src.append(ul);
+      src.append(el("p", "note", "Redactado con IA a partir de estas fuentes; las interpretaciones se señalan como tales."));
+      box.append(src);
+    }
+    entry.replaceChildren(box);
+    document.title = art.title + " · Radio IA";
+  }
+
+  function route() {
+    const m = location.hash.match(/^#entrada\/(\d{4}-\d{2}-\d{2})$/);
+    if (m) return showEntry(m[1]);
+    returnPlayer();
+    document.title = "Radio IA";
+    if (list.hidden) {
+      entry.hidden = true; entry.replaceChildren(); list.hidden = false;
+      scrollTo(0, listScroll);
+    }
+  }
+  addEventListener("hashchange", route);
 
   try {
     const res = await fetch("episodes.json", { cache: "no-cache" });
@@ -224,6 +334,7 @@
       frag.append(build(ep, i));
     });
     list.replaceChildren(frag);
+    route();
   } catch (err) {
     list.firstChild.textContent = "No se pudo cargar la lista de episodios.";
   }

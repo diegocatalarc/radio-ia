@@ -1,7 +1,7 @@
 """Utilidades de despliegue: ¿ya hay episodio de hoy? y limpieza de MP3 huérfanos.
 
 ``python -m radio.check``          exit 0 si ya existe el episodio de hoy, 1 si no.
-``python -m radio.check --prune``  borra MP3 de ``site/episodes`` que ``episodes.json`` ya no
+``python -m radio.check --prune``  borra MP3 (y entradas escritas) que ``episodes.json`` ya no
                                    referencia (el feed solo conserva 60 episodios).
 """
 from __future__ import annotations
@@ -31,7 +31,8 @@ def episode_exists_today(site_dir, tz: str, now: datetime) -> bool:
 
 
 def prune_unreferenced_mp3(site_dir) -> list[str]:
-    """Borra los .mp3 de ``episodes/`` no referenciados; devuelve los nombres borrados.
+    """Borra los .mp3 de ``episodes/`` y las entradas de ``articles/`` no referenciados;
+    devuelve los nombres borrados.
 
     Si no existe ``episodes.json`` no borra nada (evita vaciar el sitio por error).
     """
@@ -39,9 +40,15 @@ def prune_unreferenced_mp3(site_dir) -> list[str]:
     if not (site / "episodes.json").exists():
         return []
     keep = {Path(e["mp3_path"]).name for e in _read_episodes(site)}
+    keep_articles = {Path(e["article_path"]).name for e in _read_episodes(site)
+                     if e.get("article_path")}
     removed = []
     for f in sorted((site / "episodes").glob("*.mp3")):
         if f.name not in keep:
+            f.unlink()
+            removed.append(f.name)
+    for f in sorted((site / "articles").glob("*.json")):
+        if f.name not in keep_articles:
             f.unlink()
             removed.append(f.name)
     return removed

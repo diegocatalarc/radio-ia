@@ -26,6 +26,23 @@ tts_provider = "openrouter"
 tts_model = ""
 # Vacío = es-MX-Valeria:MAI-Voice-2.1-Flash con el modelo por defecto. Escucha las muestras antes de fiarte.
 tts_voice = ""
+# Entrada escrita del día (una noticia en profundidad). Solo se alimenta de historias de estos
+# medios, con redacción y estándares editoriales propios: no entran blogs corporativos (OpenAI,
+# DeepMind), que son la parte interesada, ni agregadores. Lista vacía = no se escribe entrada.
+# Se aceptan subdominios (p. ej. "feeds.bloomberg.com" vale por "bloomberg.com").
+trusted_domains = [
+    "bloomberg.com",
+    "economist.com",
+    "theguardian.com",
+    "technologyreview.com",
+    "cnbc.com",
+    "wired.com",
+    "theverge.com",
+    "techcrunch.com",
+    "fastcompany.com",
+]
+# Modelo de la entrada escrita (vacío = el mismo que `model`).
+article_model = ""
 
 feeds = [
     "https://techcrunch.com/category/artificial-intelligence/feed/",
