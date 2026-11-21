@@ -1,0 +1,656 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#f8f6f1">
+<script>
+  // Tema antes de pintar: preferencia guardada o la del sistema.
+  (() => {
+    let t = null;
+    try { t = localStorage.getItem("theme"); } catch (e) {}
+    if (t !== "light" && t !== "dark") t = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    document.documentElement.dataset.theme = t;
+  })();
+</script>
+<title>Radio IA</title>
+<link rel="alternate" type="application/rss+xml" title="Radio IA" href="feed.xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300..600;1,6..72,300..500&family=Inter:wght@400;500&display=swap">
+<style>
+  :root {
+    --bg: #f8f6f1; --paper: #fdfcf9; --fg: #1a1917; --soft: #4a4843; --muted: #8a867d;
+    --line: #e4e0d6; --rule: #1a1917; --accent: #8c2f1f;
+    --serif: "Newsreader", ui-serif, "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --wide: 1120px; --text: 680px;
+  }
+  :root[data-theme="light"] { color-scheme: light; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg: #121211; --paper: #181816; --fg: #ece9e2; --soft: #c2beb5;
+            --muted: #8b877f; --line: #2b2a27; --rule: #ece9e2; --accent: #e0907c; color-scheme: dark; }
+  }
+  :root[data-theme="dark"] { --bg: #121211; --paper: #181816; --fg: #ece9e2; --soft: #c2beb5;
+            --muted: #8b877f; --line: #2b2a27; --rule: #ece9e2; --accent: #e0907c; color-scheme: dark; }
+
+  /* Cambio de tema: fundido suave de colores (o View Transitions si el navegador lo admite). */
+  html.theming, html.theming *, html.theming *::before, html.theming *::after {
+    transition: background-color .45s ease, color .45s ease, border-color .45s ease, fill .45s ease !important; }
+  ::view-transition-old(root), ::view-transition-new(root) { animation-duration: .45s; }
+  .theme { width: 28px; height: 28px; margin: -6px -6px -6px 10px; padding: 0; border: 0; background: none;
+           color: var(--muted); cursor: pointer; display: inline-grid; place-items: center; vertical-align: middle;
+           border-radius: 50%; transition: color .2s; }
+  .theme:hover { color: var(--fg); }
+  .theme svg { width: 15px; height: 15px; transition: transform .6s cubic-bezier(.2,.7,.2,1); }
+  :root[data-theme="dark"] .theme svg { transform: rotate(180deg); }
+  .topline .right { display: inline-flex; align-items: center; }
+  .topline { white-space: nowrap; }
+  .topline .short { display: none; }
+  @media (max-width: 560px) { .topline .full { display: none; } .topline .short { display: inline; } }
+  .compact .bar-head .right { display: inline-flex; align-items: center; gap: 4px; }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.6 var(--sans);
+         -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+  body.has-bar { padding-bottom: 84px; }
+  a { color: inherit; }
+  button { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
+  [hidden] { display: none !important; }
+  .wrap { max-width: var(--wide); margin: 0 auto; padding: 0 32px; }
+
+  /* ── Cabecera ─────────────────────────────────────────── */
+  .masthead { padding-top: 28px; }
+  .topline { display: flex; justify-content: space-between; align-items: baseline; gap: 16px;
+             font-size: 12px; color: var(--muted); letter-spacing: .02em; }
+  .topline a { text-decoration: none; }
+  .topline a:hover { color: var(--fg); }
+  .brand { display: block; text-align: center; text-decoration: none; margin: 22px 0 6px;
+           font: 400 clamp(44px, 7vw, 76px)/1 var(--serif); letter-spacing: -.025em;
+           font-variation-settings: "opsz" 72; }
+  .motto { text-align: center; margin: 0 0 22px; font: italic 300 17px/1.4 var(--serif); color: var(--muted); }
+  .rules { border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); height: 4px; }
+  .compact .brand { font-size: 28px; margin: 0; text-align: left; }
+  .compact .bar-head { display: flex; align-items: center; justify-content: space-between;
+                       padding: 18px 0; border-bottom: 1px solid var(--line); }
+  .compact .bar-head a.back { font-size: 13px; color: var(--muted); text-decoration: none; }
+  .compact .bar-head a.back:hover { color: var(--fg); }
+
+  .kicker { font: 500 11px/1.2 var(--sans); letter-spacing: .16em; text-transform: uppercase;
+            color: var(--accent); margin: 0 0 14px; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
+  .kicker .dot { color: var(--muted); letter-spacing: 0; }
+  .kicker .meta { color: var(--muted); }
+
+  /* ── Portada: entrada + podcast ───────────────────────── */
+  .front { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr); gap: 0;
+           padding: 48px 0 56px; border-bottom: 1px solid var(--line); }
+  .front.solo { grid-template-columns: minmax(0, 1fr); }
+  .lead { padding-right: 48px; }
+  .front.solo .lead { padding-right: 0; max-width: 760px; }
+  .lead h2 { font: 400 clamp(32px, 4.4vw, 52px)/1.08 var(--serif); letter-spacing: -.02em;
+             margin: 0 0 20px; text-wrap: balance; font-variation-settings: "opsz" 60; }
+  .lead h2 a { text-decoration: none; }
+  .lead h2 a:hover { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 6px; }
+  .lead .lede { font: 300 21px/1.5 var(--serif); color: var(--soft); margin: 0 0 28px; text-wrap: pretty; }
+  .cta { display: inline-flex; align-items: center; gap: 10px; text-decoration: none;
+         font: 500 13px/1 var(--sans); letter-spacing: .02em; padding: 13px 20px;
+         background: var(--fg); color: var(--bg); border-radius: 999px; transition: opacity .15s; }
+  .cta:hover { opacity: .85; }
+  .cta svg { width: 14px; height: 14px; }
+  .credit { margin: 22px 0 0; font-size: 12.5px; color: var(--muted); }
+
+  .pod { border-left: 1px solid var(--line); padding-left: 40px; }
+  .front.solo .pod { border: 0; padding: 36px 0 0; margin-top: 36px; border-top: 1px solid var(--line); max-width: 760px; }
+  .pod h3 { font: 400 23px/1.25 var(--serif); margin: 0 0 22px; text-wrap: balance; letter-spacing: -.01em; }
+  .listen { display: flex; align-items: center; gap: 14px; }
+  .listen .len { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .pod ol { counter-reset: s; list-style: none; margin: 28px 0 0; padding: 0; }
+  .pod li { counter-increment: s; display: grid; grid-template-columns: 22px 1fr; gap: 6px;
+            font-size: 13.5px; line-height: 1.45; color: var(--soft); padding: 10px 0;
+            border-top: 1px solid var(--line); }
+  .pod li::before { content: counter(s, decimal-leading-zero); font-size: 11px; color: var(--muted);
+                    padding-top: 2px; font-variant-numeric: tabular-nums; }
+
+  /* Botón de reproducir (todas las vistas) */
+  .pp { flex: none; width: 48px; height: 48px; border-radius: 50%; border: 1px solid var(--fg);
+        background: none; cursor: pointer; display: grid; place-items: center;
+        transition: background .15s, color .15s; }
+  .pp:hover, .pp.on { background: var(--fg); color: var(--bg); }
+  .pp svg { width: 14px; height: 14px; fill: currentColor; }
+  .pp .i-pause, .pp.on .i-play { display: none; }
+  .pp.on .i-pause { display: block; }
+  .pp.sm { width: 34px; height: 34px; }
+  .pp.sm svg { width: 11px; height: 11px; }
+
+  /* ── Archivo ──────────────────────────────────────────── */
+  .archive { padding: 56px 0 96px; }
+  .archive > h2 { font: 500 11px/1 var(--sans); letter-spacing: .16em; text-transform: uppercase;
+                  margin: 0 0 8px; }
+  .month { font: italic 400 20px/1 var(--serif); color: var(--muted); margin: 44px 0 4px; }
+  .row { display: grid; grid-template-columns: 76px minmax(0, 1fr) auto; gap: 24px; align-items: center;
+         padding: 22px 0; border-top: 1px solid var(--line); }
+  .row .d { line-height: 1; }
+  .row .d b { display: block; font: 300 34px/1 var(--serif); font-variant-numeric: lining-nums; }
+  .row .d span { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; }
+  .row h3 { font: 400 21px/1.3 var(--serif); margin: 0; letter-spacing: -.005em; text-wrap: balance; }
+  .row h3 a { text-decoration: none; }
+  .row h3 a:hover { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 4px; }
+  .row .sub { font-size: 13px; color: var(--muted); margin-top: 6px; }
+  .row .sub .tag { color: var(--accent); }
+  .row .act { display: flex; align-items: center; gap: 10px; }
+  .row .act .len { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 40px; text-align: right; }
+
+  .foot { border-top: 1px solid var(--line); padding: 28px 0 40px; font-size: 12px; color: var(--muted);
+          display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  footer a { text-decoration: none; border-bottom: 1px solid var(--line); }
+  footer a:hover { color: var(--fg); border-color: var(--fg); }
+
+  /* ── Lectura ──────────────────────────────────────────── */
+  .progress { position: fixed; inset: 0 0 auto 0; height: 2px; z-index: 20; background: var(--accent);
+              transform-origin: 0 50%; transform: scaleX(0); }
+  .reader { max-width: var(--text); margin: 0 auto; padding: 64px 0 40px; }
+  .reader h1 { font: 400 clamp(34px, 5.4vw, 56px)/1.06 var(--serif); letter-spacing: -.022em;
+               margin: 0 0 24px; text-wrap: balance; font-variation-settings: "opsz" 64; }
+  .reader .lede { font: 300 23px/1.5 var(--serif); color: var(--soft); margin: 0 0 32px; text-wrap: pretty; }
+  .byline { display: flex; align-items: center; gap: 16px; padding: 18px 0; margin-bottom: 44px;
+            border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .byline .who { flex: 1; min-width: 0; font-size: 13px; line-height: 1.45; color: var(--muted); }
+  .byline .who strong { display: block; color: var(--fg); font-weight: 500; }
+  .prose p { font: 400 20.5px/1.72 var(--serif); margin: 0 0 1.2em; text-wrap: pretty; hyphens: auto;
+             font-variation-settings: "opsz" 16; }
+  .prose p:first-child::first-letter { float: left; font-size: 4.1em; line-height: .82; font-weight: 400;
+                                       padding: .07em .09em 0 0; color: var(--fg); }
+  .sources { margin-top: 56px; padding: 28px 0 0; border-top: 1px solid var(--rule); }
+  .sources ol { margin: 14px 0 0; padding: 0; list-style: none; }
+  .sources li { padding: 12px 0; border-bottom: 1px solid var(--line); font-size: 14px; line-height: 1.45; }
+  .sources li a { text-decoration: none; display: block; }
+  .sources li a:hover .t { text-decoration: underline; text-underline-offset: 3px; }
+  .sources .o { display: block; font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+                color: var(--muted); margin-bottom: 3px; }
+  .note { font-size: 12.5px; color: var(--muted); margin: 20px 0 0; line-height: 1.55; }
+  .pager { max-width: var(--text); margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 24px;
+           padding: 32px 0 96px; }
+  .pager a { text-decoration: none; display: block; padding-top: 18px; border-top: 1px solid var(--line); }
+  .pager a:hover strong { text-decoration: underline; text-underline-offset: 3px; }
+  .pager small { display: block; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+  .pager strong { font: 400 18px/1.3 var(--serif); }
+  .pager .next { text-align: right; grid-column: 2; }
+
+  /* ── Reproductor fijo ─────────────────────────────────── */
+  .player { position: fixed; inset: auto 0 0 0; z-index: 30; padding: 12px 0 calc(12px + env(safe-area-inset-bottom));
+            background: color-mix(in srgb, var(--paper) 88%, transparent); border-top: 1px solid var(--line);
+            -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+            transform: translateY(110%); visibility: hidden;
+            transition: transform .35s cubic-bezier(.2,.7,.2,1), visibility 0s .35s; }
+  .player.show { transform: none; visibility: visible; transition: transform .35s cubic-bezier(.2,.7,.2,1); }
+  .player .wrap { display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 1.4fr) auto; gap: 18px; align-items: center; }
+  .player .pp { width: 40px; height: 40px; }
+  .player .np { min-width: 0; }
+  .player .np b { display: block; font: 400 15px/1.3 var(--serif); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .player .np span { font-size: 11.5px; color: var(--muted); }
+  .seek { display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .seek input { flex: 1; min-width: 0; height: 20px; margin: 0; background: none; -webkit-appearance: none; appearance: none; cursor: pointer; }
+  .seek input::-webkit-slider-runnable-track { height: 2px; background: linear-gradient(to right, var(--fg) var(--p, 0%), var(--line) var(--p, 0%)); }
+  .seek input::-moz-range-track { height: 2px; background: var(--line); }
+  .seek input::-moz-range-progress { height: 2px; background: var(--fg); }
+  .seek input::-webkit-slider-thumb { -webkit-appearance: none; width: 10px; height: 10px; border-radius: 50%; background: var(--fg); margin-top: -4px; }
+  .seek input::-moz-range-thumb { width: 10px; height: 10px; border-radius: 50%; background: var(--fg); border: 0; }
+  .x { border: 0; background: none; color: var(--muted); cursor: pointer; width: 32px; height: 32px; display: grid; place-items: center; }
+  .x:hover { color: var(--fg); }
+  .x svg { width: 12px; height: 12px; stroke: currentColor; stroke-width: 1.5; }
+  .spd { border: 1px solid var(--line); background: none; border-radius: 999px; padding: 3px 8px; font-size: 11px; color: var(--muted); cursor: pointer; font-variant-numeric: tabular-nums; }
+  .spd:hover { color: var(--fg); border-color: var(--fg); }
+
+  .empty { color: var(--muted); font: italic 300 20px/1.5 var(--serif); padding: 64px 0; text-align: center; }
+  .view { animation: in .45s ease both; }
+  @keyframes in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  @media (max-width: 860px) {
+    .front { grid-template-columns: minmax(0, 1fr); padding: 36px 0 44px; }
+    .lead { padding-right: 0; }
+    .pod { border-left: 0; padding-left: 0; border-top: 1px solid var(--line); padding-top: 32px; margin-top: 36px; }
+    .player .wrap { grid-template-columns: auto minmax(0, 1fr) auto; row-gap: 6px; }
+    .seek { grid-column: 1 / -1; grid-row: 2; }
+  }
+  @media (max-width: 560px) {
+    .wrap { padding: 0 18px; }
+    .topline .hide-s { display: none; }
+    .motto { font-size: 15px; }
+    .lead .lede { font-size: 19px; }
+    .row { grid-template-columns: 52px minmax(0, 1fr) auto; gap: 14px; }
+    .row .d b { font-size: 26px; }
+    .row h3 { font-size: 18px; }
+    .row .act .len { display: none; }
+    .reader { padding-top: 40px; }
+    .reader .lede { font-size: 20px; }
+    .prose p { font-size: 19px; }
+    .pager { grid-template-columns: 1fr; }
+    .pager .next { grid-column: 1; }
+    .spd { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, .view { transition: none !important; animation: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="progress" id="progress" hidden></div>
+<div id="app"><p class="empty">Cargando…</p></div>
+
+<div class="player" id="player" aria-label="Reproductor" role="region">
+  <div class="wrap">
+    <button class="pp" id="pp" type="button" aria-label="Reproducir"></button>
+    <div class="np"><b id="np-title"></b><span id="np-meta"></span></div>
+    <div class="seek">
+      <span id="cur">0:00</span>
+      <input id="seek" type="range" min="0" step="1" value="0" aria-label="Posición">
+      <span id="dur">0:00</span>
+      <button class="spd" id="spd" type="button" aria-label="Velocidad">1×</button>
+    </div>
+    <button class="x" id="close" type="button" aria-label="Cerrar reproductor">
+      <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M1 1l10 10M11 1L1 11"/></svg>
+    </button>
+  </div>
+</div>
+
+<script>
+(() => {
+  const app = document.getElementById("app");
+  const bar = document.getElementById("player");
+  const progress = document.getElementById("progress");
+  const $ = id => document.getElementById(id);
+  const audio = new Audio();
+  audio.preload = "none";
+  let eps = [], byDay = new Map(), playing = null, homeScroll = 0;
+  const articles = new Map();
+
+  // ── utilidades ───────────────────────────────────────
+  const el = (tag, cls, text) => {
+    const n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  };
+  const svg = (cls, d, box = "0 0 14 14") => {
+    const ns = "http://www.w3.org/2000/svg";
+    const s = document.createElementNS(ns, "svg");
+    s.setAttribute("viewBox", box); s.setAttribute("aria-hidden", "true");
+    if (cls) s.setAttribute("class", cls);
+    const p = document.createElementNS(ns, "path"); p.setAttribute("d", d); s.append(p);
+    return s;
+  };
+  const PLAY = "M3 1.5v11l9.5-5.5z", PAUSE = "M2.5 1.5h3v11h-3zM8.5 1.5h3v11h-3z";
+  const fmt = s => { s = Math.max(0, Math.round(s || 0)); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); };
+  const mins = s => Math.max(1, Math.round(s / 60)) + " min";
+  const asDate = day => { const [y, m, d] = day.split("-").map(Number); return new Date(y, m - 1, d); };
+  const fullDate = day => asDate(day).toLocaleDateString("es", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+  const OUTLETS = { "bloomberg.com": "Bloomberg", "economist.com": "The Economist",
+    "theguardian.com": "The Guardian", "technologyreview.com": "MIT Technology Review", "cnbc.com": "CNBC",
+    "wired.com": "Wired", "theverge.com": "The Verge", "techcrunch.com": "TechCrunch",
+    "fastcompany.com": "Fast Company", "reuters.com": "Reuters", "ft.com": "Financial Times" };
+  const outlet = src => {
+    try {
+      const h = new URL(src.url).hostname.toLowerCase();
+      for (const d in OUTLETS) if (h === d || h.endsWith("." + d)) return OUTLETS[d];
+    } catch {}
+    return src.source;
+  };
+  const stories = ep => (ep.description || "").split(" | ").map(s => s.trim()).filter(Boolean);
+  const readMins = art => Math.max(1, Math.round([art.lede, ...(art.body || [])].join(" ").split(/\s+/).length / 220)) + " min de lectura";
+
+  async function loadArticle(ep) {
+    if (!ep.article_path) return null;
+    if (!articles.has(ep.day)) {
+      articles.set(ep.day, fetch(ep.article_path, { cache: "no-cache" })
+        .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+        .catch(e => { articles.delete(ep.day); throw e; }));
+    }
+    return articles.get(ep.day);
+  }
+
+  // ── reproductor único ────────────────────────────────
+  function playButton(ep, small) {
+    const b = el("button", "pp" + (small ? " sm" : ""));
+    b.type = "button"; b.dataset.day = ep.day;
+    b.append(svg("i-play", PLAY), svg("i-pause", PAUSE));
+    b.addEventListener("click", () => toggle(ep));
+    return b;
+  }
+  function sync() {
+    const on = playing && !audio.paused;
+    document.querySelectorAll(".pp[data-day]").forEach(b => {
+      const mine = playing && b.dataset.day === playing.day;
+      b.classList.toggle("on", !!(mine && on));
+      const t = (byDay.get(b.dataset.day) || {}).title || "";
+      b.setAttribute("aria-label", (mine && on ? "Pausar " : "Escuchar ") + t);
+    });
+    $("pp").classList.toggle("on", !!on);
+    $("pp").setAttribute("aria-label", on ? "Pausar" : "Reproducir");
+  }
+  function toggle(ep) {
+    if (!playing || playing.day !== ep.day) {
+      playing = ep;
+      audio.src = ep.mp3_path;
+      audio.playbackRate = rates[rate];
+      $("np-title").textContent = ep.title;
+      $("np-meta").textContent = "Radio IA · " + cap(asDate(ep.day).toLocaleDateString("es", { weekday: "long", day: "numeric", month: "long" }));
+      setSeek(0, ep.duration_s);
+      bar.classList.add("show"); document.body.classList.add("has-bar");
+      if ("mediaSession" in navigator && window.MediaMetadata) {
+        navigator.mediaSession.metadata = new MediaMetadata({ title: ep.title, artist: "Radio IA" });
+      }
+      audio.play().catch(() => {});
+    } else if (audio.paused) audio.play().catch(() => {});
+    else audio.pause();
+    sync();
+  }
+  function setSeek(v, max) {
+    const s = $("seek");
+    s.max = max || 0; s.value = v;
+    s.style.setProperty("--p", max ? (v / max * 100) + "%" : "0%");
+    s.setAttribute("aria-valuetext", fmt(v) + " de " + fmt(max));
+    $("cur").textContent = fmt(v); $("dur").textContent = fmt(max);
+  }
+  $("pp").append(svg("i-play", PLAY), svg("i-pause", PAUSE));
+  $("pp").addEventListener("click", () => playing && toggle(playing));
+  $("seek").addEventListener("input", e => {
+    if (!playing) return;
+    if (audio.readyState === 0) audio.load();
+    audio.currentTime = Number(e.target.value);
+    setSeek(audio.currentTime, Number(e.target.max));
+  });
+  const rates = [1, 1.25, 1.5, 0.85]; let rate = 0;
+  $("spd").addEventListener("click", () => {
+    rate = (rate + 1) % rates.length; audio.playbackRate = rates[rate];
+    $("spd").textContent = String(rates[rate]).replace(".", ",") + "×";
+  });
+  $("close").addEventListener("click", () => {
+    audio.pause(); playing = null; audio.removeAttribute("src");
+    bar.classList.remove("show"); document.body.classList.remove("has-bar"); sync();
+  });
+  ["play", "pause", "ended"].forEach(t => audio.addEventListener(t, sync));
+  audio.addEventListener("timeupdate", () => {
+    if (playing) setSeek(audio.currentTime, audio.duration || playing.duration_s);
+  });
+
+  // ── tema claro / oscuro ──────────────────────────────
+  const root = document.documentElement;
+  const metaTheme = document.querySelector('meta[name="theme-color"]');
+  const paintMeta = () => { metaTheme.content = root.dataset.theme === "dark" ? "#121211" : "#f8f6f1"; };
+  paintMeta();
+  function setTheme(t) {
+    const apply = () => {
+      root.dataset.theme = t; paintMeta();
+      try { localStorage.setItem("theme", t); } catch (e) {}
+      document.querySelectorAll(".theme").forEach(b => {
+        b.setAttribute("aria-label", t === "dark" ? "Cambiar a modo claro" : "Cambiar a modo oscuro");
+        b.setAttribute("aria-pressed", String(t === "dark"));
+      });
+    };
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return apply();
+    if (document.startViewTransition) return document.startViewTransition(apply);
+    root.classList.add("theming");
+    apply();
+    setTimeout(() => root.classList.remove("theming"), 500);
+  }
+  function themeButton() {
+    const b = el("button", "theme");
+    b.type = "button";
+    const dark = root.dataset.theme === "dark";
+    b.setAttribute("aria-label", dark ? "Cambiar a modo claro" : "Cambiar a modo oscuro");
+    b.setAttribute("aria-pressed", String(dark));
+    b.title = "Modo claro / oscuro";
+    // Círculo partido: la mitad rellena gira al cambiar de tema.
+    const ns = "http://www.w3.org/2000/svg";
+    const s = document.createElementNS(ns, "svg");
+    s.setAttribute("viewBox", "0 0 16 16"); s.setAttribute("aria-hidden", "true");
+    const c = document.createElementNS(ns, "circle");
+    c.setAttribute("cx", "8"); c.setAttribute("cy", "8"); c.setAttribute("r", "6.5");
+    c.setAttribute("fill", "none"); c.setAttribute("stroke", "currentColor"); c.setAttribute("stroke-width", "1.2");
+    const p = document.createElementNS(ns, "path");
+    p.setAttribute("d", "M8 1.5a6.5 6.5 0 0 1 0 13z"); p.setAttribute("fill", "currentColor");
+    s.append(c, p); b.append(s);
+    b.addEventListener("click", () => setTheme(root.dataset.theme === "dark" ? "light" : "dark"));
+    return b;
+  }
+
+  // ── cabeceras ────────────────────────────────────────
+  function masthead() {
+    const h = el("header", "masthead wrap");
+    const top = el("div", "topline");
+    const today = el("span");
+    today.append(el("span", "full", cap(new Date().toLocaleDateString("es", { weekday: "long", day: "numeric", month: "long", year: "numeric" }))),
+                 el("span", "short", cap(new Date().toLocaleDateString("es", { weekday: "short", day: "numeric", month: "short" })).replace(/\./g, "")));
+    const right = el("span", "right");
+    const rss = el("a"); rss.href = "feed.xml";
+    rss.append(el("span", "full", "Suscribirse al podcast"), el("span", "short", "RSS"));
+    right.append(rss, themeButton());
+    top.append(today, right);
+    const brand = el("a", "brand", "Radio IA"); brand.href = "#";
+    const motto = el("p", "motto", "La inteligencia artificial y su impacto en la economía, cada mañana");
+    h.append(top, brand, motto, el("div", "rules"));
+    return h;
+  }
+  function compactHead() {
+    const h = el("header", "compact wrap");
+    const row = el("div", "bar-head");
+    const brand = el("a", "brand", "Radio IA"); brand.href = "#";
+    const back = el("a", "back", "← Portada"); back.href = "#";
+    const right = el("span", "right");
+    right.append(back, themeButton());
+    row.append(brand, right); h.append(row);
+    return h;
+  }
+  function foot() {
+    const f = el("footer", "wrap");
+    const inner = el("div", "foot");
+    f.append(inner);
+    const a = el("span", null, "Radio IA · Textos y voz generados con IA a partir de medios con estándares editoriales.");
+    const r = el("a", null, "RSS del podcast"); r.href = "feed.xml";
+    inner.append(a, r);
+    return f;
+  }
+
+  // ── portada ──────────────────────────────────────────
+  function kicker(...parts) {
+    const k = el("p", "kicker");
+    parts.forEach((p, i) => {
+      if (i) k.append(el("span", "dot", "·"));
+      k.append(typeof p === "string" ? el("span", i ? "meta" : null, p) : p);
+    });
+    return k;
+  }
+  function podCard(ep, asLead) {
+    const box = el("section", asLead ? "lead" : "pod");
+    box.setAttribute("aria-label", "Podcast del día");
+    box.append(kicker("El podcast de hoy", mins(ep.duration_s)));
+    if (asLead) box.append(el("h2", null, ep.title)); else box.append(el("h3", null, ep.title));
+    const l = el("div", "listen");
+    l.append(playButton(ep), el("span", "len", "Escuchar · " + fmt(ep.duration_s)));
+    box.append(l);
+    const list = stories(ep);
+    if (list.length && !asLead) {
+      const ol = el("ol"); list.forEach(s => ol.append(el("li", null, s))); box.append(ol);
+    }
+    return box;
+  }
+  function front(ep) {
+    const sec = el("section", "front");
+    if (!ep.article_path) {
+      sec.classList.add("solo");
+      sec.append(podCard(ep, true));
+      const list = stories(ep);
+      if (list.length) {
+        const pod = el("section", "pod");
+        pod.append(kicker("En este episodio"));
+        const ol = el("ol"); list.forEach(s => ol.append(el("li", null, s))); pod.append(ol);
+        sec.append(pod);
+      }
+      return sec;
+    }
+    const lead = el("article", "lead");
+    const meta = el("span", "meta", "…");
+    lead.append(kicker("La entrada del día", meta));
+    const h = el("h2"); const a = el("a", null, ep.article_title || "…"); a.href = "#entrada/" + ep.day; h.append(a);
+    const lede = el("p", "lede");
+    const cta = el("a", "cta"); cta.href = "#entrada/" + ep.day;
+    cta.append("Leer la entrada", svg(null, "M1 7h11M8 3l4 4-4 4", "0 0 14 14"));
+    cta.querySelector("svg").setAttribute("fill", "none");
+    cta.querySelector("svg").setAttribute("stroke", "currentColor");
+    cta.querySelector("svg").setAttribute("stroke-width", "1.5");
+    const credit = el("p", "credit");
+    lead.append(h, lede, cta, credit);
+    loadArticle(ep).then(art => {
+      a.textContent = art.title; lede.textContent = art.lede; meta.textContent = readMins(art);
+      const outs = [...new Set((art.sources || []).map(outlet))];
+      if (outs.length) credit.textContent = "Con información de " + outs.join(", ").replace(/, ([^,]*)$/, " y $1");
+    }).catch(() => { lede.textContent = ""; meta.textContent = ""; });
+    sec.append(lead, podCard(ep, false));
+    return sec;
+  }
+  function archive(list) {
+    const sec = el("section", "archive");
+    sec.append(el("h2", null, "Ediciones anteriores"));
+    let month = "";
+    list.forEach(ep => {
+      const label = cap(asDate(ep.day).toLocaleDateString("es", { month: "long", year: "numeric" }));
+      if (label !== month) { month = label; sec.append(el("div", "month", label)); }
+      const row = el("article", "row");
+      const d = el("div", "d");
+      d.append(el("b", null, String(asDate(ep.day).getDate())),
+               el("span", null, asDate(ep.day).toLocaleDateString("es", { weekday: "short" }).replace(".", "")));
+      const mid = el("div");
+      const h = el("h3");
+      const sub = el("div", "sub");
+      if (ep.article_path) {
+        const a = el("a", null, ep.article_title || ep.title); a.href = "#entrada/" + ep.day; h.append(a);
+        sub.append(el("span", "tag", "Entrada"), " · Podcast: " + ep.title);
+        if (!ep.article_title) loadArticle(ep).then(art => { a.textContent = art.title; }).catch(() => {});
+      } else {
+        h.textContent = ep.title;
+        const n = stories(ep).length;
+        sub.textContent = "Podcast" + (n ? " · " + n + (n === 1 ? " historia" : " historias") : "");
+      }
+      mid.append(h, sub);
+      const act = el("div", "act");
+      act.append(el("span", "len", mins(ep.duration_s)), playButton(ep, true));
+      row.append(d, mid, act);
+      sec.append(row);
+    });
+    return sec;
+  }
+  function home() {
+    const v = el("div", "view");
+    v.append(masthead());
+    const main = el("main", "wrap");
+    if (!eps.length) main.append(el("p", "empty", "Aún no hay ediciones."));
+    else {
+      main.append(front(eps[0]));
+      if (eps.length > 1) main.append(archive(eps.slice(1)));
+    }
+    v.append(main, foot());
+    return v;
+  }
+
+  // ── lectura ──────────────────────────────────────────
+  async function reader(ep) {
+    const v = el("div", "view");
+    v.append(compactHead());
+    const main = el("main", "wrap");
+    const art = el("article", "reader");
+    main.append(art); v.append(main);
+    let data;
+    try { data = await loadArticle(ep); }
+    catch { art.append(el("p", "empty", "No se pudo cargar la entrada.")); return v; }
+    art.append(kicker(cap(fullDate(ep.day)), readMins(data)));
+    art.append(el("h1", null, data.title), el("p", "lede", data.lede));
+    const by = el("div", "byline");
+    const who = el("div", "who");
+    who.append(el("strong", null, "Escucha el podcast del día"),
+               document.createTextNode(ep.title + " · " + mins(ep.duration_s)));
+    by.append(playButton(ep), who);
+    art.append(by);
+    const prose = el("div", "prose");
+    (data.body || []).forEach(p => prose.append(el("p", null, p)));
+    art.append(prose);
+    if ((data.sources || []).length) {
+      const s = el("section", "sources");
+      s.append(kicker("Fuentes"));
+      const ol = el("ol");
+      data.sources.forEach(src => {
+        const li = el("li"); const a = el("a");
+        a.href = src.url; a.target = "_blank"; a.rel = "noopener";
+        a.append(el("span", "o", outlet(src)), el("span", "t", src.title));
+        li.append(a); ol.append(li);
+      });
+      s.append(ol, el("p", "note", "Esta entrada fue redactada con IA únicamente a partir de las fuentes citadas, de medios con estándares editoriales. Las interpretaciones se señalan como tales en el texto."));
+      art.append(s);
+    }
+    // anterior / siguiente entrada
+    const withArt = eps.filter(e => e.article_path);
+    const i = withArt.findIndex(e => e.day === ep.day);
+    const older = withArt[i + 1], newer = withArt[i - 1];
+    if (older || newer) {
+      const nav = el("nav", "pager");
+      nav.setAttribute("aria-label", "Otras entradas");
+      [[older, "Anterior", "prev"], [newer, "Siguiente", "next"]].forEach(([e, lbl, cls]) => {
+        if (!e) return;
+        const a = el("a", cls); a.href = "#entrada/" + e.day;
+        a.append(el("small", null, lbl + " · " + asDate(e.day).toLocaleDateString("es", { day: "numeric", month: "long" })),
+                 el("strong", null, e.article_title || e.title));
+        nav.append(a);
+      });
+      main.append(nav);
+    }
+    v.append(foot());
+    return v;
+  }
+
+  function onScroll() {
+    if (progress.hidden) return;
+    const h = document.documentElement.scrollHeight - innerHeight;
+    progress.style.transform = "scaleX(" + (h > 0 ? Math.min(1, scrollY / h) : 0) + ")";
+  }
+  addEventListener("scroll", onScroll, { passive: true });
+
+  let wasHome = true;
+  async function route() {
+    const m = location.hash.match(/^#entrada\/(\d{4}-\d{2}-\d{2})$/);
+    const ep = m && byDay.get(m[1]);
+    if (ep && ep.article_path) {
+      if (wasHome) homeScroll = scrollY;
+      wasHome = false;
+      const v = await reader(ep);
+      app.replaceChildren(v);
+      document.title = (articles.has(ep.day) ? (await articles.get(ep.day).catch(() => ({}))).title || "Entrada" : "Entrada") + " · Radio IA";
+      progress.hidden = false;
+      window.scrollTo({ top: 0, behavior: "instant" });
+      onScroll();
+    } else {
+      app.replaceChildren(home());
+      document.title = "Radio IA";
+      progress.hidden = true;
+      window.scrollTo({ top: wasHome ? 0 : homeScroll, behavior: "instant" });
+      wasHome = true;
+    }
+    sync();
+  }
+  addEventListener("hashchange", route);
+
+  fetch("episodes.json", { cache: "no-cache" })
+    .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(list => {
+      eps = list.sort((a, b) => b.day.localeCompare(a.day));
+      eps.forEach(e => byDay.set(e.day, e));
+      route();
+    })
+    .catch(() => { app.replaceChildren(el("p", "empty", "No se pudo cargar la portada.")); });
+})();
+</script>
+</body>
+</html>

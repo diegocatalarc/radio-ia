@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" version="2.0">
+  <channel>
+    <title>Radio IA</title>
+    <link>https://diegocatalarc.github.io/radio-ia/</link>
+    <description>Resumen diario en español sobre inteligencia artificial y su impacto económico.</description>
+    <language>es</language>
+    <itunes:author>Radio IA</itunes:author>
+    <itunes:explicit>false</itunes:explicit>
+    <item>
+      <title>Euforia y vértigo: la semana en que la IA mostró sus dos caras</title>
+      <description>Anthropic’s record IPO collides with tech’s worst week on Wall Street since 2020 | Nvidia stock plunges 14%, wraps up longest weekly losing streak since 2008 financial crisis | ‘Little room for error’: what a debt-laden cloud computing company says about the AI boom | Trump threatens ‘tremendous tax’ for moving AI data centers outside the US | Sin cabeza y con 500 millones más: el robot de Genesis AI con el que Europa quiere dar un puñetazo en la robótica | AI may have solved the most important problem in mathematics</description>
+      <link>https://diegocatalarc.github.io/radio-ia/#entrada/2026-11-21</link>
+      <guid isPermaLink="false">2026-11-21</guid>
+      <pubDate>Sat, 21 Nov 2026 10:27:24 -0300</pubDate>
+      <enclosure url="https://diegocatalarc.github.io/radio-ia/episodes/episodio-2026-11-21.mp3" length="8885760" type="audio/mpeg" />
+      <itunes:duration>444</itunes:duration>
+    </item>
+    <item>
+      <title>La resaca de la salida a bolsa de Anthropic y el impuesto cognitivo de la IA</title>
+      <description>Global stock markets slump as Anthropic’s record IPO fails to stem AI sell-off | Dario Amodei, CEO de Anthropic: “La IA podría comprimir un siglo de progreso médico en una década” | El negocio circular de Anthropic: Amazon y Google son accionistas, proveedores y canal de venta a la vez | AI is imposing a hidden ‘cognitive tax’ on the lowest-paid workers | AI vendors say companies are measuring ROI the wrong way. What will convince CFOs to keep paying? | Signal is blocking Gemini and Siri AI from reading your screen</description>
+      <link>https://diegocatalarc.github.io/radio-ia/#entrada/2026-11-20</link>
+      <guid isPermaLink="false">2026-11-20</guid>
+      <pubDate>Fri, 20 Nov 2026 10:59:39 -0300</pubDate>
+      <enclosure url="https://diegocatalarc.github.io/radio-ia/episodes/episodio-2026-11-20.mp3" length="12225120" type="audio/mpeg" />
+      <itunes:duration>611</itunes:duration>
+    </item>
+    <item>
+      <title>El debut bursátil de Anthropic y el nuevo pulso de los modelos de frontera</title>
+      <description>Anthropic shares expected to jump when trading begins after raising $81bn in record IPO – business live | Anthropic IPO raises over $81 billion in largest offering on record, topping SpaceX | Google quiere que Gemini 4 Neon sea tu modelo para casi todo: más rápido que Carbon y más barato por tarea | Microsoft CEO Satya Nadella explains why he asked 60K employees to quit | Nvidia interim CEO Kress tells employees ‘let’s move forward’ at first all-hands meeting since Jensen Huang exit | ‘Communities are really angry’: how datacentre opposition has gone from marginal to mainstream in five months</description>
+      <link>https://diegocatalarc.github.io/radio-ia/#entrada/2026-11-19</link>
+      <guid isPermaLink="false">2026-11-19</guid>
+      <pubDate>Thu, 19 Nov 2026 11:25:07 -0300</pubDate>
+      <enclosure url="https://diegocatalarc.github.io/radio-ia/episodes/episodio-2026-11-19.mp3" length="8774400" type="audio/mpeg" />
+      <itunes:duration>439</itunes:duration>
+    </item>
+    <item>
+      <title>Nvidia sacude los mercados, Anthropic apuesta por una empresa que se construye a sí misma y Bezos prepara la IA física</title>
+      <description>Nvidia earnings spark rally in shares and neoclouds despite Huang scandal | Nvidia isn’t selling any more AI chips to China | Anthropic’s IPO asks investors to bet that a product can build a company, not the other way around | Introducing GPT-6.2 Astra and Sol | Jeff Bezos’s $41 billion AI startup Prometheus is shrouded in secrecy. We found out who’s building it | Satya Nadella says he’s AGI-pilled now</description>
+      <link>https://diegocatalarc.github.io/radio-ia/#entrada/2026-11-18</link>
+      <guid isPermaLink="false">2026-11-18</guid>
+      <pubDate>Wed, 18 Nov 2026 10:56:22 -0300</pubDate>
+      <enclosure url="https://diegocatalarc.github.io/radio-ia/episodes/episodio-2026-11-18.mp3" length="9674400" type="audio/mpeg" />
+      <itunes:duration>484</itunes:duration>
+    </item>
+    <item>
+      <title>De Nvidia a la música: la IA entre el poder y el miedo</title>
+      <description>Former Nvidia CEO Jensen Huang says he’s open to returning in first statement since resignation | Anthropic likely to price IPO above the current range of $70 to $78, sources tell CNBC | Isomorphic Labs raises $5B as it looks to take drug candidates to clinical trials | Compute Futures Aim to Hedge AI Risks | AI Told These Ex-Google Guys How to Build a Billion-Dollar Weapons Business | Paul Kelly pleads for Albanese to ‘show some backbone’ over AI as creatives campaign for copyright protections</description>
+      <link>https://diegocatalarc.github.io/radio-ia/#entrada/2026-11-17</link>
+      <guid isPermaLink="false">2026-11-17</guid>
+      <pubDate>Tue, 17 Nov 2026 13:33:10 -0300</pubDate>
+      <enclosure url="https://diegocatalarc.github.io/radio-ia/episodes/episodio-2026-11-17.mp3" length="9046080" type="audio/mpeg" />
+      <itunes:duration>452</itunes:duration>
+    </item>
+    <item>
+      <title>De la fiebre por GTA VI al temblor en Nvidia</title>
+      <description>How Rockstar's 'GTA VI' release could reshape gaming, streaming and even paid time off | Nvidia stock falls as investors price in fallout from Jensen Huang's resignation | Freshworks alums raise $53M to take on Salesforce, HubSpot with AI-native CRM | The solution to the data center energy crisis might be in your home | The King’s Trust and OpenAI launch £1m partnership | Congress wants to tighten export rules on AI chips after Nvidia spy scandal</description>
+      <guid isPermaLink="false">2026-11-16</guid>
+      <pubDate>Mon, 16 Nov 2026 10:37:37 -0300</pubDate>
+      <enclosure url="https://diegocatalarc.github.io/radio-ia/episodes/episodio-2026-11-16.mp3" length="9055200" type="audio/mpeg" />
+      <itunes:duration>453</itunes:duration>
+    </item>
+    <item>
+      <title>Entre la salida a bolsa de Anthropic y la crisis de Nvidia, el futuro económico de la IA se juega en la credibilidad y el suministro</title>
+      <description>Nvidia’s CEO Search Draws Fire With Bessent’s ‘Shakeup’ Call | Anthropic’s IPO lands as the embattled AI trade looks for a much-needed bright spot | Nvidia se está planteando una decisión radical para dejar de depender de Samsung en la producción de memoria | Taisei Launches $150 Million AI, Robotics Fund With Pegasus Tech Ventures | 160 questions, only one wrong: top scorer in South Korea tax exam admits AI cheating | Is the AI job apocalypse finally here? The evidence suggests otherwise | John Quiggin</description>
+      <guid isPermaLink="false">2026-11-15</guid>
+      <pubDate>Sun, 15 Nov 2026 21:29:31 -0300</pubDate>
+      <enclosure url="https://diegocatalarc.github.io/radio-ia/episodes/episodio-2026-11-15.mp3" length="8510880" type="audio/mpeg" />
+      <itunes:duration>426</itunes:duration>
+    </item>
+    <item>
+      <title>Alarmas financieras, deuda en apuros y agentes que compran</title>
+      <description>Fed Sees Risks Tied to Elevated Asset Prices Partly Driven by AI | Blackstone’s QTS Is Cutting AI Debt Sale by More Than Half | Anthropic CEO Calls Computing Power Deepest Business Dilemma | Modine Shares Gain Most in Six Years After Samsung Buyout Talks | ChatGPT’s new Wallet lets AI agents shop and check out for you</description>
+      <guid isPermaLink="false">2026-11-14</guid>
+      <pubDate>Sat, 14 Nov 2026 10:31:20 -0300</pubDate>
+      <enclosure url="https://diegocatalarc.github.io/radio-ia/episodes/episodio-2026-11-14.mp3" length="9345600" type="audio/mpeg" />
+      <itunes:duration>467</itunes:duration>
+    </item>
+    <item>
+      <title>Nebius, SoftBank, Gemini 4 Hydrogen y el relevo en Nvidia</title>
+      <description>Nebius tests the neocloud playbook with $40 billion in planned spending | SoftBank’s billion-dollar loss may have put a cap on AI’s natural gas ambitions | Introducing Gemini 4 Hydrogen | Nvidia’s Biggest Risk Is Product Pace: Windsor | Jensen Huang’s Nvidia (NVDA) Scandal Fuels Push for Tighter China Chip Curbs | UK Retailers Are Hiring for AI and Pulling Back on Other Roles</description>
+      <guid isPermaLink="false">2026-11-13</guid>
+      <pubDate>Fri, 13 Nov 2026 10:05:30 -0300</pubDate>
+      <enclosure url="https://diegocatalarc.github.io/radio-ia/episodes/episodio-2026-11-13.mp3" length="12151680" type="audio/mpeg" />
+      <itunes:duration>608</itunes:duration>
+    </item>
+    <item>
+      <title>Nvidia sin Huang, CoreWeave cobra por adelantado y los centros de datos que quizá no existan</title>
+      <description>Huang, Face of the AI Boom, Ousted by Nvidia Board as CEO | Nvidia Market Value Sinks Below $4 Trillion After Huang Resigns | CoreWeave turns to customer prepayments, shorter contracts to fund AI growth | Nebius Shares Drop on Neocloud’s Disappointing Revenue Outlook | With $720M round, Britain’s Fractile gets a leg up in the race for AI chips | Why the data center you dread might never even be built</description>
+      <guid isPermaLink="false">2026-11-12</guid>
+      <pubDate>Thu, 12 Nov 2026 11:54:33 -0300</pubDate>
+      <enclosure url="https://diegocatalarc.github.io/radio-ia/episodes/episodio-2026-11-12.mp3" length="12769920" type="audio/mpeg" />
+      <itunes:duration>638</itunes:duration>
+    </item>
+    <item>
+      <title>La IA vuelve a la bolsa mientras crecen las dudas y la regulación</title>
+      <description>Anthropic IPO Demand Surges as AI Trade Roars Back | AI Has Driven a Quarter of UK Growth This Year, Analysis Shows | Kai-Fu Lee Questions Soaring AI Valuations | Utah-Based Startup Raises $500 Million for Modular AI Data Center | OpenAI, Anthropic face new oversight as New York’s AI safety law takes effect | Nvidia’s crisis has corporate governance experts reaching for the popcorn</description>
+      <guid isPermaLink="false">2026-11-11</guid>
+      <pubDate>Wed, 11 Nov 2026 09:42:13 -0300</pubDate>
+      <enclosure url="https://diegocatalarc.github.io/radio-ia/episodes/episodio-2026-11-11.mp3" length="11391840" type="audio/mpeg" />
+      <itunes:duration>570</itunes:duration>
+    </item>
+    <item>
+      <title>Récord de OpenAI, salida a bolsa de Anthropic y la fiebre eléctrica de la IA</title>
+      <description>OpenAI Third-Quarter Revenue Soars Nearly 50% to $10 Billion | All 7 Anthropic founders will each cash out about $250M in IPO | Why Nvidia and Jensen Huang Matter So Much to Markets | CoreWeave Boosts Forecast, Easing Slowdown Concerns | The backlash about data centers might really just be about electricity | Work at the Frontier: AI’s effect on freelance work</description>
+      <guid isPermaLink="false">2026-11-10</guid>
+      <pubDate>Tue, 10 Nov 2026 22:03:39 -0300</pubDate>
+      <enclosure url="https://diegocatalarc.github.io/radio-ia/episodes/episodio-2026-11-10.mp3" length="12076800" type="audio/mpeg" />
+      <itunes:duration>604</itunes:duration>
+    </item>
+  </channel>
+</rss>
