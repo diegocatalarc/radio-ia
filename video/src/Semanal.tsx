@@ -40,7 +40,7 @@ export const Semanal: React.FC<WeeklyProps> = ({ scenes, weekLabel }) => {
         from += s.durationFrames;
         return (
           <Sequence key={s.id} from={start} durationInFrames={s.durationFrames}>
-            <Frame weekLabel={weekLabel} source={s.source} durationFrames={s.durationFrames}>
+            <Frame weekLabel={weekLabel} source={s.source} durationFrames={s.durationFrames} index={i}>
               <Body s={s} index={i} />
             </Frame>
             <Audio src={staticFile(s.audio)} />

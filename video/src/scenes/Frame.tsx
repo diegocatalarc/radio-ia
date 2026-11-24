@@ -1,5 +1,7 @@
 import React from "react";
-import { AbsoluteFill } from "remotion";
+import { AbsoluteFill, useCurrentFrame } from "remotion";
+import { Background } from "./Background";
+import { Wipe } from "./Wipe";
 import { brand } from "../brand";
 import { useEnter, useFadeOutTail, useUnit } from "./useUnit";
 
@@ -7,23 +9,27 @@ type Props = {
   weekLabel: string;
   source: string | null;
   durationFrames: number;
+  index: number;
   children: React.ReactNode;
 };
 
 /** Marco común: etiqueta superior, contenido centrado y rótulo de fuente inferior. */
-export const Frame: React.FC<Props> = ({ weekLabel, source, durationFrames, children }) => {
+export const Frame: React.FC<Props> = ({ weekLabel, source, durationFrames, index, children }) => {
   const u = useUnit();
-  const enter = useEnter();
-  const lower = useEnter(10);
+  const frame = useCurrentFrame();
+  const enter = useEnter(7);
+  const lower = useEnter(16);
+  const zoom = 1 + 0.04 * (frame / Math.max(1, durationFrames));
   const fade = useFadeOutTail(durationFrames);
   return (
     <AbsoluteFill style={{ background: brand.bg, color: brand.fg, fontFamily: brand.font, opacity: fade }}>
+      <Background index={index} />
       <div style={{ position: "absolute", left: 5 * u, right: 5 * u, top: 4 * u, fontSize: 1.9 * u, fontWeight: 700,
                     letterSpacing: "0.18em", textTransform: "uppercase", color: brand.muted }}>
         Radio IA · {weekLabel}
       </div>
       <AbsoluteFill style={{ justifyContent: "center", padding: `0 ${8 * u}px`,
-                             opacity: enter, transform: `translateY(${(1 - enter) * 2 * u}px)` }}>
+                             opacity: enter, transform: `translateY(${(1 - enter) * 2 * u}px) scale(${zoom})` }}>
         {children}
       </AbsoluteFill>
       {source ? (
@@ -36,6 +42,7 @@ export const Frame: React.FC<Props> = ({ weekLabel, source, durationFrames, chil
           {source}
         </div>
       ) : null}
+      <Wipe index={index} />
     </AbsoluteFill>
   );
 };
