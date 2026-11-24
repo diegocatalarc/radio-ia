@@ -11,6 +11,7 @@ class Config:
     llm_provider: str = "openrouter"
     model: str = "anthropic/claude-sonnet-5.5"
     select_model: str = ""  # modelo barato para elegir historias; vacío = el mismo que `model`
+    weekly_model: str = ""  # modelo del Director y el Editor del video semanal; vacío = `model`
     max_stories: int = 6
     pool_size: int = 30
     site_url: str = ""
