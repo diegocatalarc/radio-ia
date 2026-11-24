@@ -73,7 +73,7 @@ Cómo funciona (`python -m radio.weekly`):
    `radio/video/render.py` ejecuta `npx remotion render` para `Semanal16x9` y `Semanal9x16`.
 
 El resultado va a `site/weekly/AAAA-Www-16x9.mp4` y `-9x16.mp4`, y `site/weekly.json` lista las
-últimas 4 semanas (la web las muestra sobre los episodios). Si la semana ya está publicada, volver a
+últimas 4 semanas (la web muestra la última bajo la portada del día y enlaza las anteriores). Si la semana ya está publicada, volver a
 ejecutarlo no hace nada; `python -m radio.weekly --force` (o *Run workflow* con `force`) la regenera.
 Cualquier fallo antes de publicar deja `site/` intacto. El modelo se elige con `weekly_model` en
 `config.toml` (vacío = `model`).
