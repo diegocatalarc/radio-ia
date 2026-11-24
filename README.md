@@ -14,7 +14,8 @@ GitHub Pages. Lo escuchas suscribiéndote al feed en tu app de podcasts.
 1. `python -m radio.run` descarga las noticias de las últimas 36 horas (`feeds` en `config.toml`),
    descarta las ya usadas en los últimos 14 días y arma un pool de hasta `pool_size` (30) titulares
    con resumen, repartidos entre fuentes. Una primera llamada barata a Claude elige las 4 a
-   `max_stories` (6) más relevantes; solo de esas se descargan los artículos completos.
+   `max_stories` (6) más relevantes, viendo también lo contado en los 3 días anteriores (registros de
+   `site/days/`) para no repetir un mismo suceso salvo que traiga algo nuevo, y el guionista cuenta solo lo nuevo; solo de esas se descargan los artículos completos.
 2. Si quedan menos de 2 historias no publica nada (código de salida 2) y **el flujo falla** con un
    `::error::` ("no episode today: fewer than 2 stories"): el correo de "run failed" de GitHub es
    tu aviso de que hoy no hay episodio. Si más de la mitad de los feeds fallan, el registro lo

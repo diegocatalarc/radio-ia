@@ -264,3 +264,52 @@ def test_select_stories_skips_call_when_pool_small():
     out = select_stories(_pool(5), date(2026, 11, 10), client, "m")
     assert prompts == [] and len(out) == 5
     assert select_stories(_pool(1), date(2026, 11, 10), client, "m")[0].id == "s0"
+
+
+def recent_days():
+    from radio.archive import ArchivedStory, DayRecord
+    st = ArchivedStory(id="old", title="Huang renuncia a Nvidia", url="u", source="Verge",
+                       summary="s", body=None)
+    return [DayRecord(date(2026, 11, 9), "Episodio del lunes", "Guion viejo.", [st])]
+
+
+def big_pool():
+    return [story(id=str(i), title=f"Titular {i}") for i in range(8)]
+
+
+def test_select_stories_prompt_lists_recent_coverage():
+    client = FakeClient(["ELEGIDAS: 0,1,2"])
+    select_stories(big_pool(), date(2026, 11, 10), client, max_stories=3, recent=recent_days())
+    p = client.prompts[0]
+    assert "YA CUBIERTO" in p and "Huang renuncia a Nvidia" in p and "2026-11-09" in p
+    assert "desarrollo claramente nuevo" in p
+
+
+def test_select_stories_without_recent_has_no_section():
+    client = FakeClient(["ELEGIDAS: 0,1,2"])
+    select_stories(big_pool(), date(2026, 11, 10), client, max_stories=3)
+    assert "YA CUBIERTO" not in client.prompts[0]
+
+
+def test_script_prompt_includes_already_told_and_asks_not_to_repeat():
+    client = FakeClient([reply("Invertirá 8 mil millones.")])
+    select_and_write([story()], date(2026, 11, 10), [], client, recent=recent_days())
+    p = client.prompts[0]
+    assert "Huang renuncia a Nvidia" in p and "Episodio del lunes" in p
+    assert "no repitas" in p.lower() and "YA CONTADO" in p
+
+
+def test_script_prompt_without_recent_says_none():
+    client = FakeClient([reply("Invertirá 8 mil millones.")])
+    select_and_write([story()], date(2026, 11, 10), [], client)
+    assert "(ninguno)" in client.prompts[0]
+
+
+def test_recent_titles_are_cleaned_of_markup():
+    from radio.archive import ArchivedStory, DayRecord
+    st = ArchivedStory(id="o", title="<b>Titular</b> con <script>x</script> marcas", url="u",
+                       source="V", summary="s", body=None)
+    rec = [DayRecord(date(2026, 11, 9), "Ep", "G", [st])]
+    client = FakeClient([reply("Invertirá 8 mil millones.")])
+    select_and_write([story()], date(2026, 11, 10), [], client, recent=rec)
+    assert "<script>" not in client.prompts[0] and "<b>" not in client.prompts[0]

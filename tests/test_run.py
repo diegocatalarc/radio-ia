@@ -114,6 +114,40 @@ def test_run_writes_day_record(tmp_path):
     assert {"id", "title", "url", "source", "summary", "body"} <= set(rec["stories"][0])
 
 
+def save_old(d, day, title, story_title):
+    from radio.archive import ArchivedStory, DayRecord, save_day
+    st = ArchivedStory(id="old-" + title, title=story_title, url="u", source="F", summary="s", body=None)
+    save_day(d.site_dir, DayRecord(day, title, "Guion viejo.", [st]))
+
+
+def test_run_gives_recent_days_to_selection_and_script(tmp_path):
+    d = deps(tmp_path, n=8)  # más que max_stories: hay llamada de selección
+    c = cfg()
+    c.max_stories = 3
+    save_old(d, date(2026, 11, 9), "Episodio de ayer", "Titular ya contado")
+    save_old(d, date(2026, 11, 4), "Episodio lejano", "Titular muy viejo")
+    assert run(c, NOW, d).exit_code == 0
+    assert len(d.claude.calls) == 2 and all("Titular ya contado" in p for p in d.claude.calls)
+    assert not any("Titular muy viejo" in p for p in d.claude.calls)
+
+
+def test_run_ignores_todays_record_so_a_rerun_is_identical(tmp_path):
+    d = deps(tmp_path, n=8)
+    c = cfg()
+    c.max_stories = 3
+    save_old(d, date(2026, 11, 10), "Episodio de hoy", "Titular de hoy")
+    assert run(c, NOW, d).exit_code == 0
+    assert not any("Titular de hoy" in p for p in d.claude.calls)
+
+
+def test_run_survives_corrupt_recent_record(tmp_path):
+    d = deps(tmp_path)
+    (d.site_dir / "days").mkdir(parents=True)
+    (d.site_dir / "days" / "2026-11-09.json").write_text("{no es json")
+    res = run(cfg(), NOW, d)
+    assert res.exit_code == 0 and res.status == "published"
+
+
 def test_select_model_picks_stories_and_model_writes_script(tmp_path):
     d = deps(tmp_path, n=8)  # más historias que max_stories: hay llamada de selección
     c = cfg()

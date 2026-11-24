@@ -13,7 +13,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from radio.audio import mp3_duration
-from radio.archive import DayRecord, atomic_write as _atomic_write, save_day, story_to_archived
+from radio.archive import DayRecord, load_week, atomic_write as _atomic_write, save_day, story_to_archived
 from radio.article import write_article
 from radio.config import Config, load_config, validate_config
 from radio.llm import llm_from_config
@@ -27,6 +27,7 @@ log = logging.getLogger(__name__)
 
 MIN_STORIES = 2
 LOOKBACK = timedelta(hours=36)
+RECENT_DAYS = 3  # días anteriores cuyo contenido ve el selector y el guionista
 @dataclass
 class Deps:
     claude: object
@@ -71,6 +72,17 @@ def _load_episodes(path: Path) -> list[Episode]:
     return [_episode_from_json(d) for d in json.loads(path.read_text(encoding="utf-8"))]
 
 
+def _recent_days(site_dir: Path, day: date) -> list[DayRecord]:
+    """Registros de los ``RECENT_DAYS`` días anteriores a ``day`` (sin el de hoy, para que una
+    reejecución del mismo día sea idéntica). Nunca rompe el episodio: ante cualquier error, ninguno."""
+    try:
+        return load_week(site_dir, day - timedelta(days=1), days=RECENT_DAYS)
+    except Exception as exc:
+        log.warning("no se pudieron leer los registros recientes (%s); se sigue sin ellos",
+                    type(exc).__name__)
+        return []
+
+
 def run(config: Config, now: datetime, deps: Deps) -> RunResult:
     """Ejecuta el pipeline una vez.
 
@@ -111,8 +123,9 @@ def _run(config: Config, now: datetime, deps: Deps) -> RunResult:
 
     pool = balance_pool(state.filter_new(fetched), config.pool_size)
     # Etapa 2: Claude elige (llamada barata) y solo entonces se descargan los cuerpos.
+    recent = _recent_days(deps.site_dir, day)
     chosen = select_stories(pool, day, deps.claude, config.select_model or config.model,
-                            max_stories=config.max_stories)
+                            max_stories=config.max_stories, recent=recent)
     if len(chosen) < MIN_STORIES:
         msg = f"Solo {len(chosen)} historias nuevas; no se publica nada{suffix}"
         log.warning(msg)
@@ -120,7 +133,7 @@ def _run(config: Config, now: datetime, deps: Deps) -> RunResult:
     new = fetch_bodies(chosen, client=deps.http)
 
     result = select_and_write(new, day, state.pop_corrections(), deps.claude,
-                              model=config.model)
+                              model=config.model, recent=recent)
     article = None
     if config.trusted_domains:
         # La entrada es un extra: si falla, el episodio se publica igual, sin ella.
