@@ -7,6 +7,21 @@ DEFAULT_BITRATE_BPS = 128_000
 _BITRATES_KBPS = [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320]
 # MPEG-2 y MPEG-2.5 Layer III (kbps).
 _BITRATES_MPEG2_KBPS = [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160]
+# Frecuencias de muestreo (Hz) por versión: 0 = MPEG-2.5, 2 = MPEG-2, 3 = MPEG-1.
+_SAMPLE_RATES = {3: [44100, 48000, 32000], 2: [22050, 24000, 16000], 0: [11025, 12000, 8000]}
+
+
+def _xing_frames(data: bytes, frame_pos: int) -> int:
+    """Recuento de frames de la etiqueta Xing/Info del primer frame, o 0 si no hay."""
+    window = data[frame_pos + 4: frame_pos + 4 + 64]
+    for name in (b"Xing", b"Info"):
+        j = window.find(name)
+        if j < 0:
+            continue
+        flags = window[j + 4: j + 8]
+        if len(flags) == 4 and flags[3] & 1 and len(window) >= j + 12:
+            return int.from_bytes(window[j + 8: j + 12], "big")
+    return 0
 
 
 def mp3_duration(data: bytes) -> float:
@@ -15,7 +30,9 @@ def mp3_duration(data: bytes) -> float:
     Salta una etiqueta ID3v2 si existe y lee la cabecera del primer frame MPEG Layer III
     (MPEG-1, MPEG-2 o MPEG-2.5; cada versión tiene su tabla de bitrates) para obtener el
     bitrate y calcula ``bytes * 8 / bitrate``. Es exacto para CBR (lo que producen OpenAI,
-    ElevenLabs y normalmente Azure); si no hay cabecera válida se asume 128 kbps.
+    ElevenLabs y normalmente Azure); si no hay cabecera válida se asume 128 kbps. Si el primer
+    frame lleva una etiqueta Xing/Info con el recuento de frames (típico de VBR) se usa ese
+    recuento, que es exacto también para VBR.
     """
     pos = 0
     if data[:3] == b"ID3" and len(data) >= 10:
@@ -32,6 +49,10 @@ def mp3_duration(data: bytes) -> float:
         idx = b3 >> 4
         if version == 1 or layer != 1 or not 1 <= idx <= 14 or (b3 >> 2) & 0x03 == 3:
             continue
+        frames = _xing_frames(data, i)
+        sr = _SAMPLE_RATES[version][(b3 >> 2) & 0x03]
+        if frames:
+            return frames * (1152 if version == 3 else 576) / sr
         table = _BITRATES_KBPS if version == 3 else _BITRATES_MPEG2_KBPS
         bitrate = table[idx] * 1000
         break
