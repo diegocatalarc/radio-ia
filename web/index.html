@@ -72,6 +72,14 @@
   details ul { margin: 12px 0 0; padding: 0; list-style: none; }
   details li { font-size: 14px; line-height: 1.5; color: var(--muted); padding: 5px 0; }
 
+  #weekly { margin: -24px 0 72px; }
+  #weekly .when { font-size: 13px; color: var(--muted); letter-spacing: .02em; margin: 0; }
+  #weekly h2 { font: 400 28px/1.25 var(--serif); letter-spacing: -.01em; margin: 6px 0 20px; text-wrap: balance; }
+  #weekly video { display: block; width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 4px; }
+  #weekly .links { display: flex; flex-wrap: wrap; gap: 6px 20px; margin: 16px 0 0; font-size: 13px; }
+  #weekly .links a { color: var(--muted); text-decoration: none; border-bottom: 1px solid var(--line); padding-bottom: 1px; }
+  #weekly .links a:hover { color: var(--fg); border-color: var(--fg); }
+
   .empty { color: var(--muted); font: italic 18px/1.5 var(--serif); }
   @media (max-width: 480px) {
     main { padding: 48px 20px 72px; }
@@ -89,6 +97,13 @@
     <p class="tag">La inteligencia artificial y su impacto en la economía, cada mañana.</p>
     <a class="rss" href="feed.xml">Suscribirse por RSS</a>
   </header>
+  <section id="weekly" hidden>
+    <p class="month">Resumen semanal</p>
+    <p class="when" id="wk-label"></p>
+    <h2 id="wk-title"></h2>
+    <video id="wk-video" controls preload="metadata" playsinline></video>
+    <p class="links" id="wk-links"></p>
+  </section>
   <div id="list"><p class="empty">Cargando…</p></div>
 </main>
 <script>
@@ -206,6 +221,29 @@
     }
     return row;
   }
+
+  // Resumen semanal (opcional: si weekly.json no existe o está vacío, la sección sigue oculta).
+  (async () => {
+    try {
+      const res = await fetch("weekly.json", { cache: "no-cache" });
+      if (!res.ok) return;
+      const weeks = await res.json();
+      if (!Array.isArray(weeks) || !weeks.length) return;
+      const [latest, ...older] = weeks;
+      document.getElementById("wk-label").textContent = latest.label;
+      document.getElementById("wk-title").textContent = latest.title;
+      document.getElementById("wk-video").src = latest.video_16x9;
+      const links = document.getElementById("wk-links");
+      const link = (href, text) => {
+        const a = el("a", null, text);
+        a.href = href;
+        return a;
+      };
+      links.append(link(latest.video_9x16, "Versión vertical"));
+      older.forEach(w => links.append(link(w.video_16x9, w.label)));
+      document.getElementById("weekly").hidden = false;
+    } catch (err) { /* sin sección semanal */ }
+  })();
 
   try {
     const res = await fetch("episodes.json", { cache: "no-cache" });
