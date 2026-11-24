@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import math
 import re
 from dataclasses import dataclass
 from typing import Literal
@@ -13,6 +14,12 @@ MIN_WORDS = 350
 MAX_WORDS = 1200
 MAX_SHORT_WORDS = 230
 _FENCE_RE = re.compile(r"^\s*```\w*\s*|\s*```\s*$")
+_ID_RE = re.compile(r"[A-Za-z0-9_-]{1,32}")
+MAX_VALUE = 10
+MAX_SOURCE = 80
+MAX_CHART_LABEL = 30
+MAX_WHEN = 16
+MAX_HITO = 60
 
 
 class SceneError(ValueError):
@@ -46,6 +53,8 @@ def _parse_scene(d: dict, i: int) -> Scene:
     if not isinstance(d, dict):
         raise SceneError(f"escena {i}: debe ser un objeto")
     sid = str(d.get("id") or f"s{i}")
+    if not _ID_RE.fullmatch(sid):
+        raise SceneError(f"escena {i}: id inválido {sid!r} (solo letras, dígitos, _ y -; máximo 32)")
     kind = d.get("kind")
     if kind not in KINDS:
         raise SceneError(f"{sid}: kind inválido {kind!r} (use {', '.join(KINDS)})")
@@ -58,8 +67,10 @@ def _parse_scene(d: dict, i: int) -> Scene:
     value = d.get("value")
     value = None if value is None or value == "" else str(value)
     chart = timeline = None
-    if kind == "cifra" and not value:
-        raise SceneError(f"{sid}: una escena cifra exige value")
+    if kind == "cifra" and (not value or not any(c.isdigit() for c in value)
+                            or len(value) > MAX_VALUE):
+        raise SceneError(f"{sid}: value de cifra debe tener al menos un dígito y "
+                         f"máximo {MAX_VALUE} caracteres")
     if kind == "porcentaje":
         try:
             ok = value is not None and 0 <= float(value.replace(",", ".")) <= 100
@@ -72,8 +83,10 @@ def _parse_scene(d: dict, i: int) -> Scene:
             chart = [(str(c["label"]), float(c["value"])) for c in (d.get("chart") or [])]
         except (KeyError, TypeError, ValueError):
             raise SceneError(f"{sid}: chart mal formado (use [{{label, value}}])") from None
-        if not 2 <= len(chart) <= 6 or any(v <= 0 for _, v in chart):
-            raise SceneError(f"{sid}: chart necesita de 2 a 6 puntos con valores > 0")
+        if not 2 <= len(chart) <= 6 or any(not math.isfinite(v) or v <= 0 for _, v in chart):
+            raise SceneError(f"{sid}: chart necesita de 2 a 6 puntos con valores finitos > 0")
+        if any(len(label) > MAX_CHART_LABEL for label, _ in chart):
+            raise SceneError(f"{sid}: chart con etiqueta de más de {MAX_CHART_LABEL} caracteres")
     if kind == "linea":
         try:
             timeline = [(str(t["when"]), str(t["label"])) for t in (d.get("timeline") or [])]
@@ -81,7 +94,11 @@ def _parse_scene(d: dict, i: int) -> Scene:
             raise SceneError(f"{sid}: timeline mal formado (use [{{when, label}}])") from None
         if not 2 <= len(timeline) <= 4:
             raise SceneError(f"{sid}: timeline necesita de 2 a 4 hitos")
+        if any(len(w) > MAX_WHEN or len(lb) > MAX_HITO for w, lb in timeline):
+            raise SceneError(f"{sid}: timeline con 'when' > {MAX_WHEN} o 'label' > {MAX_HITO} caracteres")
     source = d.get("source")
+    if source and len(str(source)) > MAX_SOURCE:
+        raise SceneError(f"{sid}: source de más de {MAX_SOURCE} caracteres")
     return Scene(id=sid, kind=kind, narration=narration, on_screen=on_screen,
                  source=str(source) if source else None, value=value, chart=chart,
                  timeline=timeline, short=bool(d.get("short")))

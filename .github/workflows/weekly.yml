@@ -65,7 +65,9 @@ jobs:
         id: weekly
         run: |
           set +e
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.force }}" = "true" ]; then
+          # La ejecución programada del domingo siempre regenera (--force): si alguien lanzó el flujo a
+          # mano entre semana, esa semana ya figura publicada y sin --force el domingo no haría nada.
+          if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ inputs.force }}" = "true" ]; then
             python -m radio.weekly --force
           else
             python -m radio.weekly

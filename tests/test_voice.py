@@ -60,23 +60,31 @@ def test_narrate_provider_error_propagates_without_partial_result():
         narrate(script("uno", "dos"), FakeTts(fail_on="dos"))
 
 
-def xing_mp3(frames):
-    # Cabecera MPEG-1 L3 estéreo 44,1 kHz, 32 bytes de relleno, etiqueta Xing con recuento de frames.
-    return (b"\xff\xfb\x90\x00" + b"\x00" * 32 + b"Xing" + b"\x00\x00\x00\x01"
-            + frames.to_bytes(4, "big") + b"\x00" * 200)
+def xing_mp3(frames, flags=3, total=None):
+    # Cabecera MPEG-1 L3 estéreo 44,1 kHz, 32 bytes de relleno, etiqueta Xing con frames y bytes.
+    body = b"\x00" * 200
+    n = 4 + 32 + 4 + 4 + 4 + 4 + len(body)
+    return (b"\xff\xfb\x90\x00" + b"\x00" * 32 + b"Xing" + flags.to_bytes(4, "big")
+            + frames.to_bytes(4, "big") + (total or n).to_bytes(4, "big") + body)
 
 
 def test_mp3_duration_uses_xing_frame_count_for_vbr():
     assert mp3_duration(xing_mp3(1000)) == pytest.approx(1000 * 1152 / 44100, abs=0.01)
 
 
-def test_mp3_duration_ignores_xing_without_frame_flag():
-    data = bytearray(xing_mp3(1000))
-    data[43] = 0  # flags sin el bit de frames
-    assert mp3_duration(bytes(data)) == pytest.approx(len(data) * 8 / 128000, abs=0.01)
+def test_mp3_duration_counts_every_concatenated_chunk_with_xing():
+    one = xing_mp3(1000)
+    assert mp3_duration(one * 3) == pytest.approx(3 * 1000 * 1152 / 44100, abs=0.05)
+
+
+def test_mp3_duration_falls_back_to_cbr_without_frames_and_bytes_flags():
+    for flags in (0, 1, 2):
+        data = xing_mp3(1000, flags=flags)
+        assert mp3_duration(data) == pytest.approx(len(data) * 8 / 128000, abs=0.01)
 
 
 def test_mp3_duration_of_real_vbr_fixture():
     from pathlib import Path
     data = Path("video/fixtures/audio/f1.mp3").read_bytes()
     assert mp3_duration(data) == pytest.approx(3.03, abs=0.05)
+    assert mp3_duration(data * 3) == pytest.approx(3 * 3.03, abs=0.15)

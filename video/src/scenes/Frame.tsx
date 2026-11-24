@@ -18,7 +18,7 @@ export const Frame: React.FC<Props> = ({ weekLabel, source, durationFrames, chil
   const fade = useFadeOutTail(durationFrames);
   return (
     <AbsoluteFill style={{ background: brand.bg, color: brand.fg, fontFamily: brand.font, opacity: fade }}>
-      <div style={{ position: "absolute", left: 5 * u, top: 4 * u, fontSize: 1.9 * u, fontWeight: 700,
+      <div style={{ position: "absolute", left: 5 * u, right: 5 * u, top: 4 * u, fontSize: 1.9 * u, fontWeight: 700,
                     letterSpacing: "0.18em", textTransform: "uppercase", color: brand.muted }}>
         Radio IA · {weekLabel}
       </div>
