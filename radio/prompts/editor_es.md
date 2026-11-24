@@ -8,6 +8,8 @@ El Director ya decidió qué contar (sección BRIEFING). Escribe el guion en esc
 Reglas estrictas:
 - No uses ninguna cifra, porcentaje, importe ni nombre propio que no esté en el material. Si no hay cifra, no la inventes. Escribe con dígitos toda cifra tomada de las fuentes; las cantidades que no vienen de las fuentes se escriben con palabras.
 - Traduce el inglés "billion" como "mil millones" (nunca "billón").
+- No repitas: cada escena aporta algo nuevo. Un hecho que se desarrolló durante varios días se cuenta una sola vez, con su evolución (en una escena "linea" o en una sola escena), no día por día. Sigue el "arc" de cada hilo del BRIEFING.
+- SEMANAS ANTERIORES ya se contaron: no repitas su tesis ni su encuadre; si el tema continúa, di solo lo nuevo y enlázalo con una frase breve de continuidad.
 - Texto para ser leído en voz alta: sin markdown ni listas.
 - Entre 9 y 12 escenas de 10 a 14 segundos de voz cada una (30 a 40 palabras); narración total entre 600 y 900 palabras.
 - Tipos de escena (el visual es plano y didáctico, un solo mensaje por pantalla):
@@ -26,6 +28,9 @@ Responde SOLO con JSON válido:
 
 BRIEFING:
 {{BRIEFING}}
+
+SEMANAS ANTERIORES:
+{{ANTERIORES}}
 
 HISTORIAS:
 {{HISTORIAS}}

@@ -30,6 +30,7 @@ log = logging.getLogger(__name__)
 
 MIN_DAYS = 4
 KEEP_WEEKS = 4
+PREVIOUS_WEEKS = 2
 FORMATS = (("16x9", "Semanal16x9", False), ("9x16", "Semanal9x16", True))
 
 
@@ -78,8 +79,11 @@ def _run_weekly(config: Config, now: datetime, deps: WeeklyDeps, force: bool) ->
         return RunResult("skipped", 2, day, len(week), msg)
 
     model = config.weekly_model or config.model
-    briefing = direct(week, deps.llm, model)
-    script = write_scenes(briefing, week, deps.llm, model)
+    # Semanas ya publicadas (las 2 más recientes, sin la actual) para no repetir su discurso.
+    previous = sorted((e for e in _load_index(deps.site_dir) if e.get("week") != wid),
+                      key=lambda e: e["week"], reverse=True)[:PREVIOUS_WEEKS]
+    briefing = direct(week, deps.llm, model, previous)
+    script = write_scenes(briefing, week, deps.llm, model, previous)
     audios = narrate(script, deps.tts)
     label = week_label([r.day for r in week])
 
@@ -96,7 +100,7 @@ def _run_weekly(config: Config, now: datetime, deps: WeeklyDeps, force: bool) ->
     site = Path(deps.site_dir)
     for tag, out in outputs.items():
         atomic_write(site / "weekly" / out.name, out.read_bytes())
-    entry = {"week": wid, "label": label, "title": script.title,
+    entry = {"week": wid, "label": label, "title": script.title, "thesis": briefing.thesis,
              "video_16x9": f"weekly/{wid}-16x9.mp4", "video_9x16": f"weekly/{wid}-9x16.mp4",
              "published": now.astimezone(ZoneInfo(config.timezone)).isoformat()}
     index = [e for e in _load_index(site) if e.get("week") != wid] + [entry]

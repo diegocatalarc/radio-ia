@@ -64,6 +64,11 @@ Cómo funciona (`python -m radio.weekly`):
    en los últimos 7 días no se publica nada (código de salida 2, el flujo termina en verde con un aviso).
 2. **Director** (`radio/video/director.py`): lee la semana y decide la tesis y 3 o 4 hilos, y marca
    cuáles van al corte vertical.
+   Una noticia que dura varios días se cuenta **una sola vez**, como un hilo con su evolución (`arc`),
+   y cada historia va en un solo hilo. El Director y el Editor también reciben la tesis y el título de
+   las 2 semanas anteriores (guardadas en `weekly.json`) para no repetir su discurso, y el Editor
+   rechaza guiones con escenas que repiten casi el mismo texto.
+
 3. **Editor** (`radio/video/editor.py`): escribe el guion en escenas (JSON, esquema en
    `radio/video/scenes.py`). Toda cifra debe aparecer en el material de la semana; si no, reintenta una
    vez y, si persiste, falla sin publicar.

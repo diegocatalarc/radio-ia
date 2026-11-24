@@ -88,3 +88,32 @@ def test_prompt_wraps_stories_in_fuente_tags_and_includes_scripts():
     p = llm.prompts[0]
     assert '<fuente id="a">' in p and "Titular a" in p and "Guion lunes." in p
     assert "2026-11-09" in p
+
+
+def test_story_in_two_threads_rejected():
+    bad = good(threads=[thread("a", True), thread("a"), thread("c")])
+    with pytest.raises(DirectorError, match="más de un hilo"):
+        direct(week(), FakeLlm(bad, bad), "m")
+
+
+def test_arc_is_parsed_and_optional():
+    t = thread("a", True)
+    t["arc"] = "lunes: renuncia; jueves: regreso"
+    b = direct(week(), FakeLlm(good(threads=[t, thread("b"), thread("c")])), "m")
+    assert b.threads[0].arc == "lunes: renuncia; jueves: regreso" and b.threads[1].arc == ""
+
+
+def test_prompt_demands_multi_day_stories_told_once_and_lists_previous_weeks():
+    prev = [{"label": "2–8 de noviembre de 2026", "title": "Semana vieja",
+             "thesis": "Tesis vieja de la semana"}]
+    llm = FakeLlm(good())
+    direct(week(), llm, "m", previous=prev)
+    p = llm.prompts[0]
+    assert "UNA sola vez" in p and "SEMANAS ANTERIORES" in p
+    assert "Tesis vieja de la semana" in p and "Semana vieja" in p and "2–8 de noviembre" in p
+
+
+def test_prompt_without_previous_weeks_says_none():
+    llm = FakeLlm(good())
+    direct(week(), llm, "m")
+    assert "(ninguna)" in llm.prompts[0]

@@ -28,7 +28,7 @@ def director_reply(days):
 
 def editor_reply():
     def sc(i, kind="titular"):
-        return {"id": f"s{i}", "kind": kind, "narration": " ".join(["palabra"] * 60),
+        return {"id": f"s{i}", "kind": kind, "narration": " ".join(f"pal{chr(97 + i)}{chr(97 + j // 26)}{chr(97 + j % 26)}" for j in range(60)),
                 "on_screen": "Texto", "value": None, "chart": None, "timeline": None,
                 "source": None, "short": i == 1}
     scenes = [sc(i) for i in range(1, 7)] + [sc(7, "cierre")]
@@ -37,10 +37,11 @@ def editor_reply():
 
 class FakeLlm:
     def __init__(self, days=(10, 11, 12), editor=None):
-        self.days, self.editor, self.calls = days, editor, 0
+        self.days, self.editor, self.calls, self.prompts = days, editor, 0, []
 
     def complete(self, prompt, *, model, max_tokens):
         self.calls += 1
+        self.prompts.append(prompt)
         text = director_reply(self.days) if "director editorial" in prompt else \
             (self.editor if self.editor is not None else editor_reply())
         return LlmReply(text=text, stop="end")
@@ -204,3 +205,38 @@ def test_keeps_only_last_4_weeks_and_prunes_mp4(tmp_path):
     names = sorted(p.name for p in (d.site_dir / "weekly").glob("*.mp4"))
     assert names == sorted(f"{w}-{f}.mp4" for w in ("2026-W46", "2026-W44", "2026-W43", "2026-W42")
                            for f in ("16x9", "9x16"))
+
+
+def old_entry(week, thesis="Tesis vieja", **kw):
+    e = {"week": week, "label": "2–8 de noviembre de 2026", "title": "Semana vieja",
+         "video_16x9": f"weekly/{week}-16x9.mp4", "video_9x16": f"weekly/{week}-9x16.mp4",
+         "published": "2026-11-08T07:00:00-03:00"}
+    if thesis is not None:
+        e["thesis"] = thesis
+    e.update(kw)
+    return e
+
+
+def test_previous_weeks_reach_director_and_editor_and_thesis_is_stored(tmp_path):
+    d = make(tmp_path)
+    seed(d.site_dir)
+    (d.site_dir / "weekly.json").write_text(json.dumps([old_entry("2026-W45")]))
+    assert run_weekly(cfg(), NOW, d).exit_code == 0
+    assert all("Tesis vieja" in p for p in d.llm.prompts[:2])
+    idx = json.loads((d.site_dir / "weekly.json").read_text())
+    assert idx[0]["thesis"] == "Tesis" and idx[1]["thesis"] == "Tesis vieja"
+
+
+def test_current_week_is_not_its_own_previous_on_force(tmp_path):
+    d = make(tmp_path)
+    seed(d.site_dir)
+    (d.site_dir / "weekly.json").write_text(json.dumps([old_entry("2026-W46", thesis="Tesis propia")]))
+    assert run_weekly(cfg(), NOW, d, force=True).exit_code == 0
+    assert not any("Tesis propia" in p for p in d.llm.prompts)
+
+
+def test_previous_entries_without_thesis_are_ok(tmp_path):
+    d = make(tmp_path)
+    seed(d.site_dir)
+    (d.site_dir / "weekly.json").write_text(json.dumps([old_entry("2026-W45", thesis=None)]))
+    assert run_weekly(cfg(), NOW, d).exit_code == 0
