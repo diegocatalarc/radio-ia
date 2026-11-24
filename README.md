@@ -21,6 +21,13 @@ GitHub Pages. Lo escuchas suscribiéndote al feed en tu app de podcasts.
    marca con una línea `ERROR` y la cuenta de feeds caídos (error o 0 entradas).
 3. Claude escribe el guion, el proveedor de voz genera el MP3 y se actualizan
    `site/episodes/episodio-AAAA-MM-DD.mp3`, `site/episodes.json` y `site/feed.xml`.
+   Además se escribe una **entrada** (`site/articles/entrada-AAAA-MM-DD.json`): la noticia más
+   relevante del episodio contada en profundidad (500-1100 palabras, con entradilla y fuentes
+   enlazadas), que la web muestra en `#entrada/AAAA-MM-DD`. Solo se alimenta de historias de los
+   medios de `trusted_domains` en `config.toml` (medios con redacción propia; ni blogs
+   corporativos ni agregadores) cuyo texto completo se pudo descargar, y pasa el mismo control
+   de cifras que el guion. Si no hay fuentes confiables o la entrada no es válida, el episodio se
+   publica igual, sin entrada. Con `trusted_domains = []` no se escribe ninguna.
 4. El flujo `.github/workflows/daily.yml` corre a las 05:17 UTC (≈02:17 en Chile con horario de
    verano) y de nuevo a las 06:17 UTC como respaldo (el minuto 17 evita la congestión de las horas en
    punto): toda ejecución programada no hace nada si el episodio de hoy ya existe.

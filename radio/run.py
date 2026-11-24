@@ -1,4 +1,4 @@
-"""Orquestación diaria: fuentes -> guion -> voz -> publicación en ``site/``.
+"""Orquestación diaria: fuentes -> guion (+ entrada escrita) -> voz -> publicación en ``site/``.
 
 Códigos de salida: 0 publicó, 1 falló, 2 no hubo suficientes historias.
 """
@@ -14,6 +14,7 @@ from zoneinfo import ZoneInfo
 
 from radio.audio import mp3_duration
 from radio.archive import DayRecord, atomic_write as _atomic_write, save_day, story_to_archived
+from radio.article import write_article
 from radio.config import Config, load_config, validate_config
 from radio.llm import llm_from_config
 from radio.feed import Episode, build_feed, upsert_episode
@@ -52,14 +53,16 @@ def estimate_mp3_duration_s(data: bytes) -> int:
 def _episode_to_json(e: Episode) -> dict:
     return {"day": e.day.isoformat(), "title": e.title, "description": e.description,
             "mp3_path": e.mp3_path, "duration_s": e.duration_s, "size_bytes": e.size_bytes,
-            "published": e.published.isoformat() if e.published else None}
+            "published": e.published.isoformat() if e.published else None,
+            "article_path": e.article_path, "article_title": e.article_title}
 
 
 def _episode_from_json(d: dict) -> Episode:
     return Episode(day=date.fromisoformat(d["day"]), title=d["title"],
                    description=d["description"], mp3_path=d["mp3_path"],
                    duration_s=int(d["duration_s"]), size_bytes=int(d["size_bytes"]),
-                   published=datetime.fromisoformat(d["published"]) if d.get("published") else None)
+                   published=datetime.fromisoformat(d["published"]) if d.get("published") else None,
+                   article_path=d.get("article_path"), article_title=d.get("article_title"))
 
 
 def _load_episodes(path: Path) -> list[Episode]:
@@ -118,15 +121,26 @@ def _run(config: Config, now: datetime, deps: Deps) -> RunResult:
 
     result = select_and_write(new, day, state.pop_corrections(), deps.claude,
                               model=config.model)
+    article = None
+    if config.trusted_domains:
+        # La entrada es un extra: si falla, el episodio se publica igual, sin ella.
+        try:
+            article = write_article(result.used, day, deps.claude,
+                                    model=config.article_model or config.model,
+                                    domains=config.trusted_domains)
+        except Exception as exc:
+            log.warning("sin entrada escrita hoy: %s: %s", type(exc).__name__, exc)
     audio = synthesize(result.text, deps.tts)
     state.mark_used(result.used, day)
 
     name = f"episodio-{day.isoformat()}.mp3"
+    article_path = f"articles/entrada-{day.isoformat()}.json" if article else None
     episode = Episode(
         day=day, title=result.title,
         description=" | ".join(s.title for s in result.used),
         mp3_path=f"episodes/{name}", duration_s=estimate_mp3_duration_s(audio),
-        size_bytes=len(audio), published=local_now)
+        size_bytes=len(audio), published=local_now, article_path=article_path,
+        article_title=article.title if article else None)
     episodes_path = deps.site_dir / "episodes.json"
     episodes = upsert_episode(_load_episodes(episodes_path), episode)
     episodes_json = json.dumps([_episode_to_json(e) for e in episodes],
@@ -136,13 +150,17 @@ def _run(config: Config, now: datetime, deps: Deps) -> RunResult:
 
     # Publicación: MP3 primero, luego episodes.json, luego feed.xml, luego estado.
     _atomic_write(deps.site_dir / "episodes" / name, audio)
+    if article:
+        _atomic_write(deps.site_dir / article_path, json.dumps(
+            article.to_json(day), ensure_ascii=False, indent=2).encode("utf-8"))
     _atomic_write(episodes_path, episodes_json.encode("utf-8"))
     _atomic_write(deps.site_dir / "feed.xml", feed_xml.encode("utf-8"))
     save_day(deps.site_dir, DayRecord(
         day=day, title=result.title, script=result.text,
         stories=[story_to_archived(x) for x in result.used]))
     state.save(deps.state_path)
-    msg = f"Publicado {name} con {len(result.used)} historias{suffix}"
+    msg = (f"Publicado {name} con {len(result.used)} historias"
+           f"{' y entrada escrita' if article else ' (sin entrada escrita)'}{suffix}")
     log.info(msg)
     return RunResult("published", 0, day, len(result.used), msg)
 

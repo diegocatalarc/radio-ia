@@ -326,3 +326,64 @@ def test_main_rejects_placeholder_site_url(monkeypatch, caplog):
     with caplog.at_level(logging.ERROR):
         assert main() == 1
     assert any("config.toml" in r.getMessage() for r in caplog.records)
+
+
+class ArticleHttp(FakeHttp):
+    """Devuelve una página con texto largo para los artículos (el feed sigue igual)."""
+    PAGE = ("<html><body><article><h1>Noticia</h1>"
+            + "".join(f"<p>Parrafo {i}: la empresa anunció un acuerdo importante con sus "
+                      f"socios europeos para ampliar su red de centros de datos.</p>"
+                      for i in range(40))
+            + "</article></body></html>")
+
+    def get(self, url, **kw):
+        resp = super().get(url, **kw)
+        if url.startswith("http://x/"):
+            resp.text = self.PAGE
+        return resp
+
+
+class ArticleClaude(FakeClaude):
+    def complete(self, prompt, *, model, max_tokens):
+        if "PRINCIPAL:" in prompt:
+            self.calls.append(prompt)
+            self.models.append(model)
+            import re
+            ids = re.findall(r"\[id: ([^\]]+)\]", prompt)
+            return LlmReply(text=(f"TITULO: Entrada del dia\nPRINCIPAL: {ids[0]}\n"
+                                  f"FUENTES: {ids[0]}\nENTRADILLA: Un acuerdo.\n\n"
+                                  "Primer parrafo.\n\nSegundo parrafo."), stop="end")
+        return super().complete(prompt, model=model, max_tokens=max_tokens)
+
+
+def test_publishes_article_from_trusted_sources(tmp_path):
+    d = deps(tmp_path, claude=ArticleClaude())
+    d.http = ArticleHttp(4)
+    res = run(cfg(trusted_domains=["x"], article_model="art"), NOW, d)
+    assert res.exit_code == 0 and "entrada escrita" in res.message
+    assert d.claude.models[-1] == "art"
+    eps = json.loads((d.site_dir / "episodes.json").read_text())
+    assert eps[0]["article_path"] == "articles/entrada-2026-11-10.json"
+    assert eps[0]["article_title"] == "Entrada del dia"
+    art = json.loads((d.site_dir / eps[0]["article_path"]).read_text())
+    assert art["title"] == "Entrada del dia" and art["body"] == ["Primer parrafo.", "Segundo parrafo."]
+    assert art["sources"][0]["url"].startswith("http://x/")
+    assert "#entrada/2026-11-10" in (d.site_dir / "feed.xml").read_text()
+
+
+def test_article_failure_still_publishes_episode(tmp_path):
+    d = deps(tmp_path)  # FakeClaude no sabe escribir entradas: formato inválido
+    d.http = ArticleHttp(4)
+    res = run(cfg(trusted_domains=["x"]), NOW, d)
+    assert res.exit_code == 0 and "sin entrada escrita" in res.message
+    eps = json.loads((d.site_dir / "episodes.json").read_text())
+    assert eps[0]["article_path"] is None
+    assert not (d.site_dir / "articles").exists()
+
+
+def test_untrusted_sources_produce_no_article(tmp_path):
+    d = deps(tmp_path, claude=ArticleClaude())
+    d.http = ArticleHttp(4)
+    res = run(cfg(trusted_domains=["bloomberg.com"]), NOW, d)
+    assert res.exit_code == 0
+    assert not any("PRINCIPAL:" in p for p in d.claude.calls)

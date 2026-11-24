@@ -18,6 +18,9 @@ class Config:
     tts_provider: str = "openrouter"
     tts_model: str = ""
     tts_voice: str = ""
+    # Entrada escrita: solo se alimenta de historias de estos dominios. Vacío = sin entrada.
+    trusted_domains: list[str] = field(default_factory=list)
+    article_model: str = ""  # vacío = el mismo que `model`
 
 
 def load_config(path: Path = Path("config.toml")) -> Config:

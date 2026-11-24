@@ -29,6 +29,8 @@ class Episode:
     duration_s: int
     size_bytes: int
     published: datetime | None = None  # tz-aware generation time; used verbatim for pubDate
+    article_path: str | None = None  # entrada escrita del día (articles/entrada-AAAA-MM-DD.json)
+    article_title: str | None = None  # titular de la entrada (portada y archivo de la web)
 
     def __post_init__(self):
         if self.published is not None and self.published.utcoffset() is None:
@@ -70,6 +72,8 @@ def build_feed(episodes: list[Episode], site_url: str, tz: str, publish_hour: in
         item = ET.SubElement(channel, "item")
         _sub(item, "title", e.title)
         _sub(item, "description", e.description)
+        if e.article_path:
+            _sub(item, "link", f"{site_url.rstrip('/')}/#entrada/{e.day.isoformat()}")
         _sub(item, "guid", e.day.isoformat(), isPermaLink="false")
         published = e.published or datetime.combine(e.day, time(publish_hour), tzinfo=zone)
         _sub(item, "pubDate", format_datetime(published))
