@@ -22,3 +22,12 @@ def week_material(week: list[DayRecord]) -> list[Story]:
         out.append(Story(id=f"_script-{rec.day.isoformat()}", title=rec.title, url="",
                          source="guion diario", published=stamp, summary="", body=rec.script))
     return out
+
+
+def render_previous(previous: list[dict] | None) -> str:
+    """Semanas ya publicadas (etiqueta, título y tesis) para que no se repita su discurso."""
+    lines = []
+    for e in previous or []:
+        thesis = f" Tesis: {e['thesis']}" if e.get("thesis") else ""
+        lines.append(f"- {e.get('label', '')}: {e.get('title', '')}.{thesis}")
+    return "\n".join(lines) or "(ninguna)"

@@ -22,8 +22,12 @@ def briefing():
                               Thread("Tres", "y", ["a"], [], False)])
 
 
+def narr(i):
+    return " ".join(f"pal{chr(97 + i)}{chr(97 + j // 26)}{chr(97 + j % 26)}" for j in range(60))
+
+
 def scene(i, kind="titular", narration=None, **kw):
-    d = {"id": f"s{i}", "kind": kind, "narration": narration or " ".join(["palabra"] * 60),
+    d = {"id": f"s{i}", "kind": kind, "narration": narration or narr(i),
          "on_screen": "Texto", "value": None, "chart": None, "timeline": None,
          "source": None, "short": i == 1}
     d.update(kw)
@@ -87,3 +91,31 @@ def test_figure_from_daily_script_is_allowed():
 
 def test_figure_from_story_body_is_allowed():
     write_scenes(briefing(), week(), FakeLlm(good("Fueron 11 días.")), "m")
+
+
+def with_repeat():
+    sc = [scene(1)] + [scene(i) for i in range(2, 7)] + [scene(7, "cierre")]
+    sc[2]["narration"] = sc[1]["narration"]  # s3 repite a s2
+    return json.dumps({"title": "T", "thesis": "T", "scenes": sc})
+
+
+def test_repeated_scenes_retry_with_feedback():
+    llm = FakeLlm(with_repeat(), good())
+    write_scenes(briefing(), week(), llm, "m")
+    assert "s2" in llm.prompts[1] and "s3" in llm.prompts[1] and "repite" in llm.prompts[1]
+
+
+def test_repeated_scenes_twice_raises_editor_error():
+    with pytest.raises(EditorError, match="repit"):
+        write_scenes(briefing(), week(), FakeLlm(with_repeat(), with_repeat()), "m")
+
+
+def test_prompt_tells_not_to_repeat_and_includes_previous_weeks_and_arc():
+    b = briefing()
+    b.threads[0].arc = "lunes: renuncia; jueves: regreso"
+    prev = [{"label": "2–8 de noviembre de 2026", "title": "Semana vieja", "thesis": "Tesis vieja"}]
+    llm = FakeLlm(good())
+    write_scenes(b, week(), llm, "m", previous=prev)
+    p = llm.prompts[0]
+    assert "Tesis vieja" in p and "lunes: renuncia; jueves: regreso" in p
+    assert "no repitas" in p.lower()

@@ -10,7 +10,7 @@ from radio.archive import DayRecord
 from radio.llm import Llm
 from radio.script import _clean, unsupported_numbers
 from radio.models import Story
-from radio.video.material import week_material
+from radio.video.material import render_previous, week_material
 
 PROMPT_PATH = Path(__file__).parent.parent / "prompts" / "director_es.md"
 MAX_TOKENS = 4000
@@ -28,6 +28,7 @@ class Thread:
     story_ids: list[str]
     figures: list[str]
     short: bool
+    arc: str = ""
 
 
 @dataclass
@@ -47,10 +48,11 @@ def _render_days(week: list[DayRecord]) -> str:
     return "\n\n".join(blocks)
 
 
-def _build_prompt(week: list[DayRecord], extra: str) -> str:
+def _build_prompt(week: list[DayRecord], previous: list[dict] | None, extra: str) -> str:
     tpl = PROMPT_PATH.read_text(encoding="utf-8")
     return (tpl.replace("{{DESDE}}", week[0].day.isoformat())
             .replace("{{HASTA}}", week[-1].day.isoformat())
+            .replace("{{ANTERIORES}}", render_previous(previous))
             .replace("{{DIAS}}", _render_days(week))) + extra
 
 
@@ -74,7 +76,11 @@ def _validate(raw: str, week: list[DayRecord], material: list[Story]) -> Briefin
         threads.append(Thread(title=str(t.get("title") or "").strip(),
                               angle=str(t.get("angle") or "").strip(), story_ids=ids,
                               figures=[str(f) for f in (t.get("figures") or [])],
-                              short=bool(t.get("short"))))
+                              short=bool(t.get("short")), arc=str(t.get("arc") or "").strip()))
+    all_ids = [i for t in threads for i in t.story_ids]
+    repeated = sorted({i for i in all_ids if all_ids.count(i) > 1})
+    if repeated:
+        raise ValueError("historias en más de un hilo (cada una va en uno solo): " + ", ".join(repeated))
     if not any(t.short for t in threads):
         raise ValueError("marca al menos un hilo con short: true")
     bad = unsupported_numbers(" ".join(f for t in threads for f in t.figures), material)
@@ -83,11 +89,12 @@ def _validate(raw: str, week: list[DayRecord], material: list[Story]) -> Briefin
     return Briefing(thesis=str(data["thesis"]).strip(), threads=threads)
 
 
-def direct(week: list[DayRecord], client: Llm, model: str) -> Briefing:
+def direct(week: list[DayRecord], client: Llm, model: str,
+           previous: list[dict] | None = None) -> Briefing:
     material = week_material(week)
     extra = problem = ""
     for _ in range(2):
-        reply = client.complete(_build_prompt(week, extra), model=model, max_tokens=MAX_TOKENS)
+        reply = client.complete(_build_prompt(week, previous, extra), model=model, max_tokens=MAX_TOKENS)
         try:
             return _validate(reply.text or "", week, material)
         except ValueError as exc:
