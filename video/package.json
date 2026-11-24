@@ -1,0 +1,21 @@
+{
+  "name": "radio-ia-video",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "studio": "remotion studio src/index.ts",
+    "render:sample": "remotion render src/index.ts Semanal16x9 out/sample-16x9.mp4 --props=fixtures/props.sample.json --public-dir=fixtures"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.546",
+    "@remotion/google-fonts": "4.0.546",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "remotion": "4.0.546"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.0",
+    "typescript": "^5.6.0"
+  }
+}

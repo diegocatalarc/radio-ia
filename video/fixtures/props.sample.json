@@ -1,0 +1,14 @@
+{
+  "fps": 30,
+  "title": "La semana en la economía de la IA",
+  "weekLabel": "17–23 de noviembre de 2026",
+  "scenes": [
+    {"id": "f1", "kind": "titular", "onScreen": "La semana en la economía de la IA", "value": null, "chart": null, "timeline": null, "source": null, "audio": "audio/f1.mp3", "durationFrames": 105},
+    {"id": "f2", "kind": "linea", "onScreen": "Nvidia: la salida y el regreso de su fundador", "value": null, "chart": null, "timeline": [{"when": "Día 0", "label": "Huang renuncia como CEO"}, {"when": "Día 11", "label": "La junta lo reinstala como CEO y presidente"}], "source": "Fast Company · The Verge · Bloomberg", "audio": "audio/f2.mp3", "durationFrames": 105},
+    {"id": "f3", "kind": "cifra", "onScreen": "días entre la renuncia y el regreso de Huang", "value": "11", "chart": null, "timeline": null, "source": "Fast Company", "audio": "audio/f3.mp3", "durationFrames": 105},
+    {"id": "f4", "kind": "porcentaje", "onScreen": "del soporte automatizado en 30 días (Richpanel)", "value": "50", "chart": null, "timeline": null, "source": "OpenAI", "audio": "audio/f4.mp3", "durationFrames": 105},
+    {"id": "f5", "kind": "grafico", "onScreen": "Texto de prueba de noventa caracteres para comprobar que no desborda el marco en 9:16", "value": null, "chart": [{"label": "Uno", "value": 3}, {"label": "Dos", "value": 5}, {"label": "Tres", "value": 8}], "timeline": null, "source": "Bloomberg", "audio": "audio/f5.mp3", "durationFrames": 105},
+    {"id": "f6", "kind": "tarjeta", "onScreen": "El control de chips llega a los operadores de centros de datos en terceros países", "value": null, "chart": null, "timeline": null, "source": null, "audio": "audio/f6.mp3", "durationFrames": 105},
+    {"id": "f7", "kind": "cierre", "onScreen": "Qué seguir la próxima semana", "value": null, "chart": null, "timeline": null, "source": null, "audio": "audio/f7.mp3", "durationFrames": 105}
+  ]
+}
