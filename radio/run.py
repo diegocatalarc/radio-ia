@@ -6,14 +6,13 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import sys
-import tempfile
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+from radio.archive import DayRecord, atomic_write as _atomic_write, save_day, story_to_archived
 from radio.config import Config, load_config, validate_config
 from radio.llm import llm_from_config
 from radio.feed import Episode, build_feed, upsert_episode
@@ -100,19 +99,6 @@ def _load_episodes(path: Path) -> list[Episode]:
     return [_episode_from_json(d) for d in json.loads(path.read_text(encoding="utf-8"))]
 
 
-def _atomic_write(path: Path, data: bytes) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=path.name + ".", suffix=".tmp")
-    try:
-        with os.fdopen(fd, "wb") as f:
-            f.write(data)
-        os.replace(tmp, path)
-    except BaseException:
-        if os.path.exists(tmp):
-            os.unlink(tmp)
-        raise
-
-
 def run(config: Config, now: datetime, deps: Deps) -> RunResult:
     """Ejecuta el pipeline una vez.
 
@@ -183,6 +169,9 @@ def _run(config: Config, now: datetime, deps: Deps) -> RunResult:
     _atomic_write(deps.site_dir / "episodes" / name, audio)
     _atomic_write(episodes_path, episodes_json.encode("utf-8"))
     _atomic_write(deps.site_dir / "feed.xml", feed_xml.encode("utf-8"))
+    save_day(deps.site_dir, DayRecord(
+        day=day, title=result.title, script=result.text,
+        stories=[story_to_archived(x) for x in result.used]))
     state.save(deps.state_path)
     msg = f"Publicado {name} con {len(result.used)} historias{suffix}"
     log.info(msg)

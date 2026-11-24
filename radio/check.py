@@ -12,6 +12,7 @@ from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+from radio.archive import prune_days
 from radio.config import load_config
 
 
@@ -53,6 +54,8 @@ def main(argv: list[str] | None = None) -> int:
     if "--prune" in argv:
         for name in prune_unreferenced_mp3(site):
             print(f"borrado {name}")
+        for name in prune_days(site):
+            print(f"borrado days/{name}")
         return 0
     config = load_config()
     now = datetime.now(ZoneInfo("UTC"))

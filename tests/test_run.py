@@ -105,6 +105,15 @@ def test_publishes_episode_and_updates_feed(tmp_path):
     assert len(st["used"]) == 4 and set(st["used"].values()) == {"2026-11-10"}
 
 
+def test_run_writes_day_record(tmp_path):
+    d = deps(tmp_path)
+    assert run(cfg(), NOW, d).exit_code == 0
+    rec = json.loads((d.site_dir / "days" / "2026-11-10.json").read_text())
+    assert rec["day"] == "2026-11-10" and rec["title"] == "Titulo del dia"
+    assert rec["script"] == "Hola oyentes." and len(rec["stories"]) == 4
+    assert {"id", "title", "url", "source", "summary", "body"} <= set(rec["stories"][0])
+
+
 def test_select_model_picks_stories_and_model_writes_script(tmp_path):
     d = deps(tmp_path, n=8)  # más historias que max_stories: hay llamada de selección
     c = cfg()
