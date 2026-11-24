@@ -51,6 +51,35 @@ nada que reiniciar a mano. Consecuencia: si tú empujas algo a `gh-pages` (por e
 corrección), hazlo sobre el último commit, y ten en cuenta que un push tuyo durante una ejecución
 del flujo puede ser sobrescrito por el push forzado.
 
+## Video semanal
+
+Cada domingo un segundo flujo (`.github/workflows/weekly.yml`) resume la semana en un **video** de
+motion graphics, en 16:9 y en 9:16 (corte vertical de ~60 s). Tono de noticiero económico sobrio y
+gráficos planos y limpios (cifras grandes, anillos de porcentaje, líneas de tiempo, barras).
+
+Cómo funciona (`python -m radio.weekly`):
+
+1. **Registros diarios.** Cada episodio diario guarda en `site/days/AAAA-MM-DD.json` su guion y las
+   historias usadas (con resumen y cuerpo recortado). Se conservan 60 días. Con menos de 4 registros
+   en los últimos 7 días no se publica nada (código de salida 2, el flujo termina en verde con un aviso).
+2. **Director** (`radio/video/director.py`): lee la semana y decide la tesis y 3 o 4 hilos, y marca
+   cuáles van al corte vertical.
+3. **Editor** (`radio/video/editor.py`): escribe el guion en escenas (JSON, esquema en
+   `radio/video/scenes.py`). Toda cifra debe aparecer en el material de la semana; si no, reintenta una
+   vez y, si persiste, falla sin publicar.
+4. **Voz** (`radio/video/voice.py`): una locución por escena; la duración real del audio fija la de
+   la escena.
+5. **Montaje** (`video/`, Remotion): `radio/video/manifest.py` escribe `props.json` y
+   `radio/video/render.py` ejecuta `npx remotion render` para `Semanal16x9` y `Semanal9x16`.
+
+El resultado va a `site/weekly/AAAA-Www-16x9.mp4` y `-9x16.mp4`, y `site/weekly.json` lista las
+últimas 4 semanas (la web muestra la última bajo la portada del día y enlaza las anteriores). Si la semana ya está publicada, volver a
+ejecutarlo no hace nada; `python -m radio.weekly --force` (o *Run workflow* con `force`) la regenera.
+Cualquier fallo antes de publicar deja `site/` intacto. El modelo se elige con `weekly_model` en
+`config.toml` (vacío = `model`).
+
+Para probar el diseño sin gastar API: `cd video && npm ci && npm run render:sample`.
+
 ## Puesta en marcha (una sola vez)
 
 1. **Crea un repositorio público** en GitHub (por ejemplo `radio-ia`) y sube este código a `main`.

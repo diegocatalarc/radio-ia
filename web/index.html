@@ -126,6 +126,12 @@
   .pp.sm svg { width: 11px; height: 11px; }
 
   /* ── Archivo ──────────────────────────────────────────── */
+  .weekly { padding: 56px 0 0; border-top: 1px solid var(--line); margin-top: 56px; }
+  .weekly h2 { font: 400 clamp(28px, 3.4vw, 40px)/1.12 var(--serif); letter-spacing: -.02em; margin: 14px 0 24px; text-wrap: balance; }
+  .weekly video { display: block; width: 100%; max-width: 860px; aspect-ratio: 16 / 9; background: #000; border-radius: 2px; }
+  .weekly .links { display: flex; flex-wrap: wrap; gap: 6px 22px; margin: 18px 0 0; font: 13px/1.4 var(--sans); }
+  .weekly .links a { color: var(--muted); text-decoration: none; border-bottom: 1px solid var(--line); padding-bottom: 1px; }
+  .weekly .links a:hover { color: var(--fg); border-color: var(--fg); }
   .archive { padding: 56px 0 96px; }
   .archive > h2 { font: 500 11px/1 var(--sans); letter-spacing: .16em; text-transform: uppercase;
                   margin: 0 0 8px; }
@@ -265,7 +271,7 @@
   const $ = id => document.getElementById(id);
   const audio = new Audio();
   audio.preload = "none";
-  let eps = [], byDay = new Map(), playing = null, homeScroll = 0;
+  let eps = [], weeks = [], byDay = new Map(), playing = null, homeScroll = 0;
   const articles = new Map();
 
   // ── utilidades ───────────────────────────────────────
@@ -544,6 +550,21 @@
     });
     return sec;
   }
+  function weekly(list) {
+    const [latest, ...older] = list;
+    const sec = el("section", "weekly");
+    sec.setAttribute("aria-label", "Video semanal");
+    sec.append(kicker("El video de la semana", latest.label), el("h2", null, latest.title));
+    const v = el("video");
+    v.controls = true; v.preload = "metadata"; v.playsInline = true; v.src = latest.video_16x9;
+    v.addEventListener("play", () => { audio.pause(); });
+    const links = el("p", "links");
+    const link = (href, text) => { const a = el("a", null, text); a.href = href; return a; };
+    links.append(link(latest.video_9x16, "Versión vertical"));
+    older.forEach(w => links.append(link(w.video_16x9, w.label)));
+    sec.append(v, links);
+    return sec;
+  }
   function home() {
     const v = el("div", "view");
     v.append(masthead());
@@ -551,6 +572,7 @@
     if (!eps.length) main.append(el("p", "empty", "Aún no hay ediciones."));
     else {
       main.append(front(eps[0]));
+      if (weeks.length) main.append(weekly(weeks));
       if (eps.length > 1) main.append(archive(eps.slice(1)));
     }
     v.append(main, foot());
@@ -642,9 +664,18 @@
   }
   addEventListener("hashchange", route);
 
-  fetch("episodes.json", { cache: "no-cache" })
-    .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
-    .then(list => {
+  // El video semanal es opcional: si weekly.json no existe o está vacío, no se muestra la sección.
+  const loadWeeks = () => fetch("weekly.json", { cache: "no-cache" })
+    .then(r => r.ok ? r.json() : [])
+    .then(l => { weeks = Array.isArray(l) ? l : []; })
+    .catch(() => {});
+
+  Promise.all([
+    fetch("episodes.json", { cache: "no-cache" })
+      .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }),
+    loadWeeks(),
+  ])
+    .then(([list]) => {
       eps = list.sort((a, b) => b.day.localeCompare(a.day));
       eps.forEach(e => byDay.set(e.day, e));
       route();

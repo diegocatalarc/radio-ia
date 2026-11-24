@@ -13,6 +13,8 @@ llm_provider = "deepseek"
 # OpenRouter: ids como "anthropic/claude-sonnet-5.5"; Anthropic: "claude-sonnet-5-5".
 model = "deepseek-v4-pro"
 select_model = "deepseek-flash"
+# Modelo del video semanal (Director y Editor). Vacío = usa `model`.
+weekly_model = ""
 max_stories = 6
 # Historias candidatas que ve Claude al elegir (reparto equilibrado entre fuentes).
 pool_size = 30

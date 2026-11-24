@@ -6,14 +6,14 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import sys
-import tempfile
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+from radio.audio import mp3_duration
+from radio.archive import DayRecord, atomic_write as _atomic_write, save_day, story_to_archived
 from radio.article import write_article
 from radio.config import Config, load_config, validate_config
 from radio.llm import llm_from_config
@@ -27,14 +27,6 @@ log = logging.getLogger(__name__)
 
 MIN_STORIES = 2
 LOOKBACK = timedelta(hours=36)
-DEFAULT_BITRATE_BPS = 128_000
-
-# MPEG1 Layer III bitrates (kbps) by header index.
-_BITRATES_KBPS = [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320]
-# MPEG-2 y MPEG-2.5 Layer III (kbps).
-_BITRATES_MPEG2_KBPS = [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160]
-
-
 @dataclass
 class Deps:
     claude: object
@@ -54,32 +46,8 @@ class RunResult:
 
 
 def estimate_mp3_duration_s(data: bytes) -> int:
-    """Duración estimada en segundos (int >= 1) sin dependencias.
-
-    Salta una etiqueta ID3v2 si existe y lee la cabecera del primer frame MPEG Layer III
-    (MPEG-1, MPEG-2 o MPEG-2.5; cada versión tiene su tabla de bitrates) para obtener el
-    bitrate y calcula ``bytes * 8 / bitrate``. Es exacto para CBR (lo que producen OpenAI,
-    ElevenLabs y normalmente Azure); si no hay cabecera válida se asume 128 kbps.
-    """
-    pos = 0
-    if data[:3] == b"ID3" and len(data) >= 10:
-        size = ((data[6] & 0x7F) << 21) | ((data[7] & 0x7F) << 14) | \
-               ((data[8] & 0x7F) << 7) | (data[9] & 0x7F)
-        pos = 10 + size
-    bitrate = DEFAULT_BITRATE_BPS
-    for i in range(pos, min(len(data) - 3, pos + 4096)):
-        b1, b2, b3 = data[i], data[i + 1], data[i + 2]
-        if b1 != 0xFF or (b2 & 0xE0) != 0xE0:
-            continue
-        version = (b2 >> 3) & 0x03   # 0 = MPEG-2.5, 1 = reservado, 2 = MPEG-2, 3 = MPEG-1
-        layer = (b2 >> 1) & 0x03     # 1 = Layer III
-        idx = b3 >> 4
-        if version == 1 or layer != 1 or not 1 <= idx <= 14 or (b3 >> 2) & 0x03 == 3:
-            continue
-        table = _BITRATES_KBPS if version == 3 else _BITRATES_MPEG2_KBPS
-        bitrate = table[idx] * 1000
-        break
-    return max(1, round((len(data) - pos) * 8 / bitrate))
+    """Duración estimada en segundos (int >= 1)."""
+    return max(1, round(mp3_duration(data)))
 
 
 def _episode_to_json(e: Episode) -> dict:
@@ -101,19 +69,6 @@ def _load_episodes(path: Path) -> list[Episode]:
     if not path.exists():
         return []
     return [_episode_from_json(d) for d in json.loads(path.read_text(encoding="utf-8"))]
-
-
-def _atomic_write(path: Path, data: bytes) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=path.name + ".", suffix=".tmp")
-    try:
-        with os.fdopen(fd, "wb") as f:
-            f.write(data)
-        os.replace(tmp, path)
-    except BaseException:
-        if os.path.exists(tmp):
-            os.unlink(tmp)
-        raise
 
 
 def run(config: Config, now: datetime, deps: Deps) -> RunResult:
@@ -200,6 +155,9 @@ def _run(config: Config, now: datetime, deps: Deps) -> RunResult:
             article.to_json(day), ensure_ascii=False, indent=2).encode("utf-8"))
     _atomic_write(episodes_path, episodes_json.encode("utf-8"))
     _atomic_write(deps.site_dir / "feed.xml", feed_xml.encode("utf-8"))
+    save_day(deps.site_dir, DayRecord(
+        day=day, title=result.title, script=result.text,
+        stories=[story_to_archived(x) for x in result.used]))
     state.save(deps.state_path)
     msg = (f"Publicado {name} con {len(result.used)} historias"
            f"{' y entrada escrita' if article else ' (sin entrada escrita)'}{suffix}")

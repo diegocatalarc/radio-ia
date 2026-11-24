@@ -51,7 +51,8 @@ jobs:
           fi
 
       # Los datos (site/ + state.json) viven en la rama gh-pages, que es también
-      # la que publica GitHub Pages. Se clona dentro de site/.
+      # la que publica GitHub Pages. Se clona dentro de site/. Esa copia incluye days/ (registros
+      # diarios) y weekly/ (video semanal): se conservan porque el commit final hace `git add -A`.
       - name: Recuperar datos previos (rama gh-pages)
         if: steps.feeds.outputs.only != 'true'
         run: |

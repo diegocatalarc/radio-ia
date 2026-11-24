@@ -97,6 +97,19 @@ def test_correct_cli_rejects_empty(tmp_path):
     assert not (tmp_path / "s.json").exists()
 
 
+def test_main_prune_also_prunes_old_day_records(tmp_path, monkeypatch, capsys):
+    from datetime import date
+    from radio.archive import ArchivedStory, DayRecord, save_day
+    from radio.check import main
+    site = tmp_path / "site"
+    site.mkdir()
+    for i in range(62):
+        save_day(site, DayRecord(date.fromordinal(date(2026, 9, 1).toordinal() + i), "t", "s", []))
+    monkeypatch.chdir(tmp_path)
+    assert main(["--prune"]) == 0
+    assert len(list((site / "days").glob("*.json"))) == 60
+
+
 def test_prune_removes_unreferenced_articles(tmp_path):
     import json as _json
     from radio.check import prune_unreferenced_mp3
