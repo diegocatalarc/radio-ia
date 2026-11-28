@@ -1,0 +1,25 @@
+{
+  "day": "2026-11-22",
+  "title": "Anthropic afirma que su IA Claude ayudó a resolver la hipótesis de Riemann un día después de salir a bolsa",
+  "lede": "Un matemático de Anthropic asegura que el modelo Claude contribuyó a demostrar uno de los problemas del Milenio, y dos organizaciones independientes han verificado la afirmación. El anuncio llega en pleno debate sobre los incentivos económicos de los grandes laboratorios de IA.",
+  "body": [
+    "El matemático de Anthropic Levent Alpöge publicó el viernes una nota en su sitio web personal en la que asegura que Claude, el modelo de inteligencia artificial de la compañía, ayudó a demostrar la hipótesis de Riemann, según informa The Guardian. El problema, propuesto en 1859 por el matemático alemán Bernhard Riemann, es uno de los siete problemas del Milenio seleccionados en 2000 por el Clay Mathematics Institute, que ofrece un millón de dólares por cada solución.",
+    "Dos organizaciones anunciaron el sábado por la tarde que habían verificado de forma independiente la afirmación de Alpöge tras revisar el código en el lenguaje de programación Lean que él compartió. La Lean Focused Research Organization y la Mathlib Initiative emitieron un comunicado conjunto en el que afirmaron tener “plena confianza” en que la prueba de la hipótesis de Riemann es correcta, según recoge The Guardian. Alpöge escribió que Claude y él habían trabajado en la solución durante aproximadamente seis semanas, y describió el papel del modelo con un lenguaje inusualmente expresivo: afirmó que Claude “voló, bailó y brilló cerca de la línea de meta”.",
+    "El anuncio se produjo apenas un día después de que Anthropic saliera a bolsa en el índice Nasdaq, un detalle que el propio Alpöge reconoció como incómodo: “El momento exacto es horrible”, escribió, añadiendo que si hubiera podido lo habría terminado mucho antes. The Verge, en un análisis posterior a la salida a bolsa de Anthropic, señala que la compañía se ha convertido en uno de los laboratorios de IA más valiosos del planeta y que ahora debe reconciliar su misión declarada de priorizar la seguridad con la presión de los mercados públicos por obtener ingresos y beneficios crecientes.",
+    "La historia de la hipótesis de Riemann no es un caso aislado. The Guardian recuerda que en septiembre la competidora de Anthropic, OpenAI, afirmó que una versión no pública de sus herramientas de IA ayudó a resolver parte de otro problema del Milenio. En aquella ocasión, según el medio, la empresa gastó 15 millones de dólares empleando 10.000 sistemas de IA para resolver el problema, un enfoque que varios matemáticos recibieron con extrañeza y críticas. James Robinson, matemático de la Universidad de Warwick, declaró entonces que le resultaba frustrante ver a las grandes tecnológicas “quemando ese combustible” solo para demostrar lo bueno que es su último modelo, y lo describió como una fanfarronería inmadura respaldada por miles de millones de dólares y con potencial daño ambiental.",
+    "Nuestra lectura es que el anuncio de Alpöge, verificado con rapidez inusual, tiene implicaciones económicas que van más allá de las matemáticas. Al producirse inmediatamente después de la salida a bolsa de Anthropic, refuerza la narrativa de valor de la compañía ante inversores y clientes, precisamente cuando The Verge advierte que la empresa necesitará multiplicar sus ingresos para justificar su valoración. Que la prueba se haya compartido en Lean y haya podido ser verificada en poco tiempo sugiere también un cambio en la economía del conocimiento: la verificación computacional de resultados complejos abarata el proceso de validación y podría alterar los ritmos de la investigación científica tradicional.",
+    "El asunto deja varias preguntas abiertas. Aún no está claro si el Clay Mathematics Institute aceptará formalmente la prueba y otorgará el millón de dólares del premio, ni si Alpöge o Anthropic reclamarían ese dinero. Tampoco se sabe con precisión cuánto contribuyó Claude frente al trabajo humano, ya que Alpöge habla de colaboración pero no detalla la división del esfuerzo. Y queda por ver cómo reaccionará la comunidad matemática en su conjunto, que según The Guardian ya ha mostrado incomodidad con la dependencia de sistemas privados de IA y con el gasto desproporcionado de las grandes tecnológicas en la resolución de problemas matemáticos millonarios mientras persisten desafíos globales como el cambio climático."
+  ],
+  "sources": [
+    {
+      "title": "Two groups verify mathematician’s claim that Claude helped prove mathematics problem",
+      "source": "The Guardian",
+      "url": "https://www.theguardian.com/technology/2026/nov/21/anthropic-riemann-hypothesis-solved-claude-ai"
+    },
+    {
+      "title": "Can Anthropic afford to put safety first?",
+      "source": "The Verge",
+      "url": "https://www.theverge.com/podcast/1038701/anthropic-ipo-ai-safety-openai-nvidia-structure"
+    }
+  ]
+}
